@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block titulo %}Regras dos convênios · Vitalis{% endblock %}
+{% block corpo %}
+{% set nome_campo = {"numero_autorizacao": "nº da autorização", "autorizacao_validade": "validade da autorização",
+  "profissional_registro": "registro do profissional", "carteirinha": "carteirinha", "cid": "CID"} %}
+<h2 style="margin-top:6px">Regras dos convênios <span class="chip">versão {{ r.versao }}</span></h2>
+<p class="intro">É isso que o sistema confere em cada guia. As regras vêm do arquivo <code>dados/regras_convenio.json</code>:
+  se um convênio mudar prazo, limite ou cobertura, troca-se o arquivo e o código continua igual.
+  <a class="bruto" href="/regras">ver em JSON</a></p>
+
+<h2>O que cada convênio exige</h2>
+<div class="cards">
+  {% for c in convenios %}
+  <div class="card">
+    <h3>{{ c.nome }}</h3>
+    <div class="fatos">
+      <div class="fato"><small>Prazo pra enviar a guia</small><b>{{ c.prazo_envio_dias }} dias</b><br><span class="msg">contados do atendimento</span></div>
+      <div class="fato"><small>Validade máx. da autorização</small><b>{{ c.validade_maxima_autorizacao_dias }} dias</b></div>
+      <div class="fato"><small>Sessões por autorização</small><b>até {{ c.limite_sessoes_por_autorizacao }}</b></div>
+      <div class="fato"><small>Autorização verbal</small>
+        {% if c.aceita_autorizacao_verbal_dias_uteis %}<b>{{ c.aceita_autorizacao_verbal_dias_uteis }} dias úteis</b><br><span class="msg">com protocolo</span>
+        {% else %}<b>não aceita</b>{% endif %}</div>
+    </div>
+    <div class="rotulo">Campos obrigatórios</div>
+    <div class="chips">{% for campo in c.campos_obrigatorios %}<span class="chip">{{ nome_campo.get(campo, campo.replace('_', ' ')) }}</span>{% endfor %}</div>
+    <div class="rotulo">Cobre</div>
+    <div class="chips">
+      {% for cod, p in r.procedimentos.items() %}
+        {% if cod in c.procedimentos_cobertos %}<span class="chip sim">{{ p.descricao }}</span>{% endif %}
+      {% endfor %}
+      {% for cod, p in r.procedimentos.items() %}
+        {% if cod not in c.procedimentos_cobertos %}<span class="chip nao">não cobre: {{ p.descricao }}</span>{% endif %}
+      {% endfor %}
+    </div>
+    {% if c.observacao %}<div class="nota">{{ c.observacao }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<h2>Procedimentos: quem cobre e quem pode fazer</h2>
+<div class="rolagem"><table>
+  <tr><th>Código</th><th>Procedimento</th><th class="num">Valor de referência</th><th>Registro exigido</th>
+    {% for c in convenios %}<th class="c">{{ c.nome }}</th>{% endfor %}</tr>
+  {% for cod, p in r.procedimentos.items() %}
+  <tr><td><code>{{ cod }}</code></td><td>{{ p.descricao }}</td><td class="num">{{ p.valor_referencia|brl }}</td>
+    <td>{{ registro.get(cod, '?') }} <span class="msg">{{ 'fisioterapeuta' if registro.get(cod) == 'CREFITO' else 'médico' if registro.get(cod) == 'CRM' }}</span></td>
+    {% for c in convenios %}<td class="c">{% if cod in c.procedimentos_cobertos %}<span class="sim-i" title="cobre">✓</span>{% else %}<span class="nao-i" title="não cobre">✕</span>{% endif %}</td>{% endfor %}
+  </tr>
+  {% endfor %}
+</table></div>
+
+<h2>O que é conferido em cada guia</h2>
+<div class="rolagem"><table>
+  <tr><th>Regra</th><th>O que olha</th><th>Se der errado</th></tr>
+  <tr><td><b>Convênio</b></td><td>O nome bate com um dos convênios acima</td><td><span class="tag bloqueada">bloqueada</span></td></tr>
+  <tr><td><b>Campos obrigatórios</b></td><td>Os campos que cada convênio exige</td><td>sem autorização ou CID: <span class="tag bloqueada">bloqueada</span> · sem registro do profissional: <span class="tag corrigir">corrigir</span> · autorização verbal: <span class="tag pendente">pendente</span> até o prazo</td></tr>
+  <tr><td><b>Procedimento</b></td><td>O código existe e o convênio cobre</td><td><span class="tag bloqueada">bloqueada</span></td></tr>
+  <tr><td><b>Autorização</b></td><td>Validade x data do atendimento</td><td><span class="tag bloqueada">bloqueada</span>, ou <span class="tag corrigir">corrigir</span> se a recepção anotou autorização nova</td></tr>
+  <tr><td><b>Sessões</b></td><td>Número da sessão x limite do convênio</td><td><span class="tag bloqueada">bloqueada</span></td></tr>
+  <tr><td><b>Profissional</b></td><td>CREFITO pra fisioterapia, CRM pra consulta e infiltração</td><td><span class="tag bloqueada">bloqueada</span></td></tr>
+  <tr><td><b>Valor</b></td><td>Valor lançado x valor de referência</td><td><span class="tag corrigir">corrigir</span></td></tr>
+  <tr><td><b>Prazo de envio</b></td><td>Atendimento + prazo do convênio x dia da conferência</td><td>vencido: <span class="tag bloqueada">bloqueada</span> · faltando até 7 dias: <span class="tag atencao">atencao</span></td></tr>
+  <tr><td><b>Duplicata</b></td><td>A mesma guia lançada duas vezes</td><td><span class="tag bloqueada">bloqueada</span> na lançada por último</td></tr>
+  <tr><td><b>Observação da recepção</b></td><td>O texto livre que a recepção escreveu</td><td>particular ou código errado: <span class="tag bloqueada">bloqueada</span> · remarcação ou reembolso: <span class="tag atencao">atencao</span></td></tr>
+  <tr><td><b>Formato</b></td><td>Data com barra, valor com vírgula</td><td><span class="tag corrigir">corrigir</span> <span class="msg">(sem risco: o conteúdo está certo)</span></td></tr>
+</table></div>
+
+<h2>O que cada status quer dizer</h2>
+<div class="rolagem"><table>
+  <tr><th>Status</th><th>Significa</th><th>Conta como dinheiro em risco?</th></tr>
+  <tr><td><span class="tag bloqueada">bloqueada</span></td><td>Não pode ir pro convênio assim. Precisa de documento novo ou de uma decisão.</td><td>sim</td></tr>
+  <tr><td><span class="tag pendente">pendente</span></td><td>Esperando algo com prazo, como o número da autorização verbal.</td><td>sim, até resolver</td></tr>
+  <tr><td><span class="tag corrigir">corrigir</span></td><td>A informação existe, só foi lançada errado: registro do profissional, autorização nova já em mãos, formato.</td><td>sim, se algum achado leva à glosa</td></tr>
+  <tr><td><span class="tag atencao">atencao</span></td><td>Pode ir. Vale alguém dar uma olhada.</td><td>não</td></tr>
+  <tr><td><span class="tag ok">ok</span></td><td>Pode enviar.</td><td>não</td></tr>
+</table></div>
+{% endblock %}

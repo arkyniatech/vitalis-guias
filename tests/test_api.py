@@ -109,3 +109,21 @@ def test_relatorio_traz_as_duas_mensagens():
 def test_data_referencia_invalida():
     c = TestClient(app)
     assert c.post("/guias?data_referencia=ontem", json=GUIA, headers=CHAVE).status_code == 422
+
+
+def test_cancelar_guia_tira_do_painel():
+    c = TestClient(app)
+    c.post("/guias", json=GUIA, headers=CHAVE)
+    assert c.delete("/guias/API-1").status_code == 401
+    assert c.delete("/guias/API-1", headers=CHAVE).json() == {"cancelada": True, "id_guia": "API-1"}
+    assert c.get("/relatorio").json()["verificadas"] == 0
+    assert c.delete("/guias/API-1", headers=CHAVE).status_code == 404
+
+
+def test_paginas_de_regras_e_integracao():
+    c = TestClient(app)
+    c.post("/guias", json=GUIA, headers=CHAVE)
+    regras = c.get("/convenios").text
+    assert all(n in regras for n in ("Vitalcard", "Saúde Interior", "Plano Bem", "5 dias úteis"))
+    integ = c.get("/integracao").text
+    assert "<b>Guias de convênio" in integ and "/guias/lote" in integ

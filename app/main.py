@@ -2,12 +2,14 @@
   POST /guias        JSON de uma guia (ou lista). É o que o n8n/sistema de gestão chama.
   POST /guias/lote   CSV exportado do sistema (o que a Carla tem hoje).
   GET  /             dashboard de terça.  GET /relatorio  mesmos números em JSON pro n8n.
+  GET  /convenios    regras dos convênios pra gente ler.  GET /integracao  como chamar a API.
 """
 from __future__ import annotations
 
 import csv
 import io
 import logging
+import re
 import secrets
 from contextlib import asynccontextmanager
 from datetime import date
@@ -17,10 +19,11 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup, escape
 
 from app import config, db, relatorio
 from app.validador import motor
-from app.validador.regras_convenio import carregar
+from app.validador.regras_convenio import REGISTRO_POR_PROCEDIMENTO, carregar
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("vitalis.api")
@@ -41,6 +44,14 @@ templates = Jinja2Templates(directory=str(config.RAIZ / "app" / "templates"))
 templates.env.filters["brl"] = relatorio.brl
 templates.env.globals["rotulo"] = relatorio.rotulo
 basic = HTTPBasic(auto_error=False)
+
+
+def _mensagem_html(texto: str) -> Markup:
+    """Mensagem de Telegram/WhatsApp (*negrito*) em HTML, pra mostrar no painel como vai chegar."""
+    return Markup(re.sub(r"\*([^*\n]+)\*", r"<b>\1</b>", str(escape(texto or ""))))
+
+
+templates.env.filters["mensagem"] = _mensagem_html
 
 
 # --------------------------------------------------------------------------- segurança
@@ -145,7 +156,7 @@ def relatorio_json(desde: date | None = None, ate: date | None = None):
 @app.get("/", response_class=HTMLResponse, dependencies=[Depends(exige_login)])
 def dashboard(request: Request, desde: date | None = None, ate: date | None = None):
     rel = relatorio.gerar(desde, ate)
-    return templates.TemplateResponse(request, "dashboard.html", {"rel": rel, "desde": desde, "ate": ate})
+    return templates.TemplateResponse(request, "dashboard.html", {"rel": rel, "desde": desde, "ate": ate, "aba": "painel"})
 
 
 @app.get("/guias/{id_guia}", response_class=HTMLResponse, dependencies=[Depends(exige_login)])
@@ -160,6 +171,32 @@ def detalhe(request: Request, id_guia: str):
     g["achados"] = json.loads(g["achados"] or "[]")
     g["dados_brutos"] = json.loads(g["dados_brutos"] or "{}")
     return templates.TemplateResponse(request, "guia.html", {"g": g})
+
+
+@app.delete("/guias/{id_guia}", dependencies=[Depends(exige_api_key)])
+def cancelar_guia(id_guia: str):
+    """Guia lançada por engano (ou de teste): sai do painel e do relatório."""
+    if not db.cancelar_guia(id_guia):
+        raise HTTPException(404, "guia não encontrada")
+    return {"cancelada": True, "id_guia": id_guia}
+
+
+@app.get("/convenios", response_class=HTMLResponse, dependencies=[Depends(exige_login)])
+def convenios(request: Request):
+    """As mesmas regras do GET /regras, em tela: o que cada convênio exige e cobre."""
+    r = carregar()
+    return templates.TemplateResponse(request, "regras.html", {
+        "r": r, "convenios": list(r.convenios.values()), "registro": REGISTRO_POR_PROCEDIMENTO, "aba": "regras"})
+
+
+@app.get("/integracao", response_class=HTMLResponse, dependencies=[Depends(exige_login)])
+def integracao(request: Request):
+    """Como o sistema de gestão / n8n conversa com o app, com as mensagens que o relatório gera hoje."""
+    base = str(request.base_url).rstrip("/")
+    if request.headers.get("x-forwarded-proto") == "https":
+        base = base.replace("http://", "https://", 1)
+    return templates.TemplateResponse(request, "integracao.html", {
+        "rel": relatorio.gerar(), "base": base, "aba": "integracao"})
 
 
 @app.get("/regras")

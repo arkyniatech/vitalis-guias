@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titulo %}Integração · Vitalis{% endblock %}
+{% block corpo %}
+<h2 style="margin-top:6px">Integração</h2>
+<p class="intro">Como uma guia chega até aqui e o que sai daqui. O sistema de gestão (ou o n8n) manda cada guia no lançamento,
+  a conferência volta na hora e a recepção recebe o alerta antes de enviar ao convênio.</p>
+
+<h2>O caminho de uma guia</h2>
+<div class="fluxo">
+  <span class="passo">Recepção lança a guia</span><span class="seta">→</span>
+  <span class="passo">n8n recebe no webhook</span><span class="seta">→</span>
+  <span class="passo"><code>POST /guias</code> confere</span><span class="seta">→</span>
+  <span class="passo">Telegram da unidade: <b>NÃO ENVIAR</b> ou tudo certo</span><span class="seta">→</span>
+  <span class="passo">Terça: relatório pro Dr. Renato</span>
+</div>
+
+<h2>Endpoints</h2>
+<div class="rolagem"><table>
+  <tr><th>Método</th><th>Caminho</th><th>Pra quê</th><th>Acesso</th></tr>
+  <tr><td><span class="metodo post">POST</span></td><td><code>/guias</code></td><td>Conferir uma guia (ou uma lista) em JSON. Devolve status, achados e a mensagem pronta pra recepção.</td><td><span class="chave">X-API-Key</span></td></tr>
+  <tr><td><span class="metodo post">POST</span></td><td><code>/guias/lote</code></td><td>Conferir o CSV exportado do sistema. Linha ruim não derruba o lote.</td><td><span class="chave">X-API-Key</span></td></tr>
+  <tr><td><span class="metodo delete">DELETE</span></td><td><code>/guias/{id}</code></td><td>Tirar do painel uma guia lançada por engano.</td><td><span class="chave">X-API-Key</span></td></tr>
+  <tr><td><span class="metodo get">GET</span></td><td><code>/relatorio</code></td><td>Os números do painel em JSON, com as duas mensagens de baixo já montadas. É o que o n8n usa. <a class="bruto" href="/relatorio">abrir</a></td><td><span class="chave">X-API-Key</span> ou login</td></tr>
+  <tr><td><span class="metodo get">GET</span></td><td><code>/guias/{id}</code></td><td>Página de uma guia: achados e como a regra leu cada campo.</td><td>login</td></tr>
+  <tr><td><span class="metodo get">GET</span></td><td><code>/regras</code></td><td>As regras dos convênios em JSON. <a class="bruto" href="/convenios">ver em tela</a></td><td><span class="aberto">aberto</span></td></tr>
+  <tr><td><span class="metodo get">GET</span></td><td><code>/saude</code></td><td>Se o app e o banco estão de pé. <a class="bruto" href="/saude">abrir</a></td><td><span class="aberto">aberto</span></td></tr>
+</table></div>
+
+<div class="grid2">
+  <div>
+    <h2>Mandar uma guia</h2>
+<pre>curl -X POST {{ base }}/guias \
+  -H "X-API-Key: SUA_CHAVE" \
+  -H "Content-Type: application/json" \
+  -d @guia.json</pre>
+    <p class="msg">Os campos são os mesmos do CSV do sistema. Data com barra, valor com vírgula e campos a mais são aceitos.
+      Mandar a mesma <code>id_guia</code> de novo atualiza a conferência, não duplica.</p>
+  </div>
+  <div>
+    <h2>Exemplo de guia</h2>
+<pre>{
+  "id_guia": "G-2609-0001",
+  "unidade": "Sul",
+  "data_atendimento": "18/09/2026",
+  "paciente": "P-2001",
+  "convenio": "Vitalcard",
+  "carteirinha": "123456789",
+  "cid": "M54.5",
+  "procedimento_codigo": "50000470",
+  "procedimento_descricao": "Sessão de fisioterapia musculoesquelética",
+  "numero_autorizacao": "AUT999001",
+  "autorizacao_validade": "2026-10-10",
+  "autorizacao_sessoes_limite": "10",
+  "sessao_numero_na_autorizacao": "11",
+  "profissional": "Felipe Andrade",
+  "profissional_registro": "",
+  "valor": "62,00",
+  "data_lancamento": "2026-09-19"
+}</pre>
+    <p class="msg">Essa volta <span class="tag bloqueada">bloqueada</span>: sessão 11 numa autorização de 10, sem registro do profissional, data e valor fora do padrão.</p>
+  </div>
+</div>
+
+<h2>As mensagens que saem hoje</h2>
+<p class="intro">Geradas agora, com os dados do painel. O n8n só repassa pro Telegram.</p>
+<div class="grid2">
+  <div class="chat">
+    <div class="de">Terça, 7h · para o Dr. Renato</div>
+    <div class="bolha">{{ rel.mensagem_whatsapp|mensagem }}</div>
+  </div>
+  <div class="chat">
+    <div class="de">Dias úteis, 8h · para a Carla e a recepção</div>
+    <div class="bolha">{{ rel.mensagem_pendencias|mensagem }}</div>
+  </div>
+</div>
+{% endblock %}

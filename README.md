@@ -67,6 +67,7 @@ Extrapolando pras 900 guias/mês, seriam uns R$ 30 mil/mês em risco, o dobro da
                        ▼
              Postgres (Supabase) ──► GET /  dashboard  ·  GET /relatorio  JSON + mensagens prontas
                                      GET /guias/{id}  como a regra leu cada campo
+                                     GET /convenios  regras em tela  ·  GET /integracao  endpoints e mensagens
 ```
 
 ### As regras
@@ -176,7 +177,7 @@ python scripts/carregar_lote.py dados/guias_agosto.csv http://localhost:8000 SUA
 
 Ou `docker compose up --build`.
 
-Testes: `pytest`. São 41, entre eles:
+Testes: `python -m pytest`. São 43, entre eles:
 
 - o gabarito das 80 guias (`tests/gabarito_agosto.json`): se alguém mexer numa regra e uma guia mudar de lugar, o teste diz qual;
 - as 80 guias entrando uma por uma pelo `POST /guias`, sem parâmetro nenhum, batendo com o lote;
@@ -189,7 +190,7 @@ Testes: `pytest`. São 41, entre eles:
 
 1. **Supabase**: crie um projeto, copie a connection string (Settings → Database → URI, pooler em modo Session) e troque o prefixo pra `postgresql+psycopg://`. As tabelas são criadas na primeira subida.
 2. **EasyPanel**: App → Source: GitHub (este repositório) → Build: Dockerfile → porta 8000 → domínio.
-3. **Environment**: `DATABASE_URL`, `API_KEY`, `DASH_USER`, `DASH_PASS`, `OPENAI_API_KEY` (opcional). Nunca no repositório.
+3. **Environment**: `DATABASE_URL`, `API_KEY`, `DASH_USER`, `DASH_PASS`, `OPENAI_API_KEY` (opcional). Nunca no repositório. Se o banco for dividido com outros sistemas, `DB_SCHEMA=vitalis` põe as tabelas num schema só delas.
 4. Deploy. `GET /saude` responde `{"app":"ok","banco":"ok","ia":"openai"}`.
 5. Carregue agosto: `python scripts/carregar_lote.py dados/guias_agosto.csv https://SEU-DOMINIO SUA_API_KEY`.
 6. **n8n**: na pasta "Clínica Vitalis", preencha o nó Config de cada workflow e ligue as duas credenciais.
@@ -197,7 +198,7 @@ Testes: `pytest`. São 41, entre eles:
 ## Segurança e cuidado básico
 
 - Segredos só em variável de ambiente. `.env` está no `.gitignore`; `.env.example` tem só placeholders.
-- `POST /guias` e `/guias/lote` exigem `X-API-Key`. Dashboard e `/relatorio` exigem login (HTTP Basic) ou a mesma chave (pro n8n). Sem essas variáveis o app avisa no log que está aberto.
+- `POST /guias`, `/guias/lote` e `DELETE /guias/{id}` exigem `X-API-Key`. Dashboard e `/relatorio` exigem login (HTTP Basic) ou a mesma chave (pro n8n). Sem essas variáveis o app avisa no log que está aberto.
 - Erro tratado em cada camada: JSON inválido → 422; guia sem id → 422; convênio desconhecido → achado, não exceção; uma regra que quebrar vira achado `ERRO_INTERNO_REGRA` e as outras seguem; linha ruim no lote não derruba o lote; IA fora do ar cai no fallback; app fora do ar → n8n devolve 502 e avisa a Carla.
 - Sem dado clínico além do CID, que o convênio exige. Paciente é código anônimo.
 

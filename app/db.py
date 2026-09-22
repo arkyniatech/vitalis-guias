@@ -134,6 +134,14 @@ def salvar_resultado(res: dict) -> None:
             ])
 
 
+def cancelar_guia(id_guia: str) -> bool:
+    """Tira a guia (e os achados dela) do painel. Devolve False se não existia."""
+    with engine().begin() as cx:
+        apagou = cx.execute(delete(guias).where(guias.c.id_guia == id_guia)).rowcount
+        cx.execute(delete(achados).where(achados.c.id_guia == id_guia))
+    return apagou > 0
+
+
 def buscar_observacao(texto: str) -> dict | None:
     with engine().connect() as cx:
         r = cx.execute(select(observacoes).where(observacoes.c.texto == texto)).mappings().first()
