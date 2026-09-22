@@ -331,6 +331,10 @@ A IA escreveu a maior parte do código. Eu descrevi o problema, revisei cada ent
 - **n8n:** o relatório de terça executado manualmente contra o app no ar, com a chave da API. O envio pelo WhatsApp é testado com os três workflows publicados.
 - **Visual** conferido no navegador, em desktop e em celular (375px).
 
+### Quanto tempo levou
+
+Cerca de 5 horas, do primeiro olhar nas 80 guias ao painel no ar com n8n, MCP, Skill e assistente.
+
 ## Estrutura
 
 ```
