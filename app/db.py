@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (Column, Date, DateTime, Float, Integer, MetaData, String, Table, Text,
-                        create_engine, delete, insert, select, update)
+                        create_engine, delete, event, insert, select, update)
 from sqlalchemy.engine import Engine
 
 from app import config
@@ -79,8 +80,23 @@ def engine(url: str | None = None) -> Engine:
         u = url or config.DATABASE_URL
         kw = {"pool_pre_ping": True} if u.startswith("postgres") else {"connect_args": {"check_same_thread": False}}
         _engine = create_engine(u, **kw)
+        if u.startswith("postgres") and config.DB_SCHEMA:
+            _usar_schema(_engine, config.DB_SCHEMA)
         metadata.create_all(_engine)
     return _engine
+
+
+def _usar_schema(e: Engine, schema: str) -> None:
+    """Cada conexão nova aponta o search_path pro schema (o pooler do Supabase ignora isso na URL)."""
+    if not re.fullmatch(r"[a-z_][a-z0-9_]*", schema):
+        raise ValueError(f"DB_SCHEMA inválido: {schema!r}")
+
+    @event.listens_for(e, "connect")
+    def _search_path(dbapi_conn, _):
+        with dbapi_conn.cursor() as cur:
+            cur.execute(f"create schema if not exists {schema}")
+            cur.execute(f"set search_path to {schema}")
+        dbapi_conn.commit()
 
 
 def usar_engine(e: Engine) -> None:

@@ -13,6 +13,8 @@ def _env(nome: str, padrao: str = "") -> str:
 
 
 DATABASE_URL = _env("DATABASE_URL") or f"sqlite:///{RAIZ / 'dados' / 'vitalis.db'}"
+# Schema próprio no Postgres (ex. "vitalis"), pra dividir um banco com outros sistemas. Vazio = public.
+DB_SCHEMA = _env("DB_SCHEMA")
 API_KEY = _env("API_KEY")
 DASH_USER = _env("DASH_USER")
 DASH_PASS = _env("DASH_PASS")
