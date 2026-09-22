@@ -159,6 +159,51 @@ Credenciais a criar no n8n: **Vitalis API (X-API-Key)** (tipo Header Auth, nome 
 5. Teste: no 2 e no 3, clique em "Testar agora". No 1, mande a guia de exemplo pro webhook de teste: `curl -X POST https://SEU-N8N/webhook-test/vitalis/guia -H "Content-Type: application/json" -d @dados/exemplo_guia_nova.json`.
 6. Ative os três.
 
+## MCP e Skill
+
+### MCP `vitalis-guias` ([`mcp_vitalis/server.py`](mcp_vitalis/server.py))
+
+Um servidor MCP em cima dos dados da prova. Lê `dados/regras_convenio.json` e `dados/guias_agosto.csv` direto do repositório e carrega as 80 guias num SQLite em memória, sem banco externo e sem segredo. Usa **o mesmo motor de regras do app**: a decisão que sai no MCP é a mesma do painel (tem teste pra isso).
+
+| Ferramenta | O que faz |
+|---|---|
+| `consultar_regra(convenio, procedimento)` | O que um convênio exige pra um procedimento: se cobre, valor de referência, registro exigido (CREFITO/CRM), campos obrigatórios, validade da autorização, limite de sessões, prazo de envio, autorização verbal e a observação do convênio. Aceita código ou nome ("infiltração") e convênio sem acento. |
+| `verificar_guia(guia, data_referencia?)` | Confere uma guia e devolve **decisão (OK ou PENDENTE)**, status detalhado, **motivos** (problema, campo, motivo, o que corrigir), se vai glosar, R$ em risco e a mensagem pronta pra recepção. Não grava nada. |
+| `buscar_guia(id_guia)` | Uma guia de agosto pelo id, com os dados como foram lançados e a conferência. |
+| `listar_convenios()` | Convênios e procedimentos, pra traduzir o que a recepção escreveu. |
+| `relatorio_da_semana(desde?, ate?)` | Os números do Dr. Renato num período, com a mensagem de terça pronta. |
+
+**Instalar** (Python 3.10+):
+
+```bash
+git clone https://github.com/arkyniatech/vitalis-guias && cd vitalis-guias
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+```
+
+- **Claude Code**: abrindo a pasta do repositório, o `.mcp.json` já registra o servidor (aprove quando pedir). Fora dela:
+  `claude mcp add vitalis-guias -- /CAMINHO/vitalis-guias/.venv/bin/python /CAMINHO/vitalis-guias/mcp_vitalis/server.py`
+- **Claude Desktop** (ou outro cliente MCP por stdio), no `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "vitalis-guias": {
+      "command": "/CAMINHO/vitalis-guias/.venv/bin/python",
+      "args": ["/CAMINHO/vitalis-guias/mcp_vitalis/server.py"]
+    }
+  }
+}
+```
+
+Por padrão a observação da recepção é lida por palavra-chave (determinístico, bate com o gabarito). `VITALIS_MCP_IA=1` com `OPENAI_API_KEY` liga a IA. `VITALIS_GUIAS_CSV=/outro/arquivo.csv` troca a base de guias.
+
+### Skill `conferir-guia` ([`skills/conferir-guia/SKILL.md`](skills/conferir-guia/SKILL.md))
+
+Pra quem opera a clínica: a pessoa cola a guia do jeito que a recepção escreveu ("fisio muscular, aut AUT999001, sessão 11 de 10, Felipe sem registro, 62,00...") e recebe **OK ou PENDENTE**, o motivo e o que corrigir, em português simples. A Skill só traduz o texto em campos e explica o resultado. Quem decide é o `verificar_guia` do MCP: ela não inventa campo que não veio e não dá veredito sem o MCP.
+
+- **Claude Code**: já vem em `.claude/skills/conferir-guia` (link pra `skills/conferir-guia`). Pra usar em qualquer projeto, copie a pasta pra `~/.claude/skills/`.
+- **Claude Desktop / claude.ai**: compacte a pasta `skills/conferir-guia` em .zip e envie na área de Skills das configurações. Precisa do MCP acima conectado.
+
 ## Os números da terça
 
 `GET /` mostra: verificadas, com problema, dinheiro em risco (travado nas bloqueadas x recuperável em corrigir e pendente), por tipo, por unidade, por convênio, e a lista do que fazer na ordem (bloqueadas primeiro, maior valor primeiro), com a ação de cada uma e até quando enviar. Filtro por data de lançamento.
@@ -177,12 +222,13 @@ python scripts/carregar_lote.py dados/guias_agosto.csv http://localhost:8000 SUA
 
 Ou `docker compose up --build`.
 
-Testes: `python -m pytest`. São 43, entre eles:
+Testes: `python -m pytest`. São 46, entre eles:
 
 - o gabarito das 80 guias (`tests/gabarito_agosto.json`): se alguém mexer numa regra e uma guia mudar de lugar, o teste diz qual;
 - as 80 guias entrando uma por uma pelo `POST /guias`, sem parâmetro nenhum, batendo com o lote;
 - lote reenviado, invertido e embaralhado dando o mesmo resultado;
-- um teste pra cada esclarecimento da Expert.
+- um teste pra cada esclarecimento da Expert;
+- o MCP devolvendo a mesma decisão e os mesmos números do app.
 
 `python scripts/explicar_agosto.py` regenera o `docs/agosto_guia_a_guia.md`.
 
@@ -204,7 +250,7 @@ Testes: `python -m pytest`. São 43, entre eles:
 
 ## Decisões que eu defenderia na entrevista
 
-- **Python + FastAPI pra regra, n8n pra orquestrar.** Regra em Code node de n8n é difícil de testar e de explicar. Aqui cada regra é uma função com nome e 41 testes rodam em 3 segundos. O n8n fica onde ele é bom: receber a guia, agendar e entregar a mensagem.
+- **Python + FastAPI pra regra, n8n pra orquestrar.** Regra em Code node de n8n é difícil de testar e de explicar. Aqui cada regra é uma função com nome e 46 testes rodam em 3 segundos. O n8n fica onde ele é bom: receber a guia, agendar e entregar a mensagem.
 - **Regras no JSON, não no código.** `regras_convenio.json` é o que a Carla mandou. Mudou o limite do Plano Bem, troca o arquivo. O que é regra da clínica e não do convênio (CREFITO pra fisio, CRM pra médico) está num dicionário só, com comentário dizendo isso.
 - **IA num lugar só, com fallback.** Ver acima.
 - **Conferência no lançamento, sempre.** A mesma guia dá o mesmo resultado entrando por lote, CSV ou API. É o que o esclarecimento 2 pede e o que faz sentido na operação: a guia é conferida quando nasce.
@@ -235,7 +281,9 @@ app/
     observacao.py         IA + fallback + cache
     regras.py             uma função por regra
     motor.py              orquestra, decide status, reconfere duplicata fora de ordem
-  templates/              dashboard.html, guia.html
+  templates/              dashboard.html, guia.html, regras.html, integracao.html
+mcp_vitalis/server.py     MCP: consultar_regra, verificar_guia, buscar_guia, listar_convenios, relatorio_da_semana
+skills/conferir-guia/     Skill pra recepção e faturamento (usa o MCP)
 dados/                    regras_convenio.json, guias_agosto.csv
 docs/                     agosto_guia_a_guia.md
 tests/                    gabarito das 80 guias, regras, esclarecimentos, observação, API

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "vitalis-guias": {
+      "command": ".venv/bin/python",
+      "args": ["mcp_vitalis/server.py"]
+    }
+  }
+}
