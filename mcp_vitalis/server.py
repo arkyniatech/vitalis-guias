@@ -105,6 +105,8 @@ def _explicar(res: dict) -> dict[str, Any]:
         "observacao_lida_como": res["obs"].get("intencao"),
         "conferida_com_data_de": str(g["data_referencia"]),
         "prazo_envio_vence_em": str(g["prazo_envio_vence_em"]) if g.get("prazo_envio_vence_em") else None,
+        "dias_para_enviar": ((g["prazo_envio_vence_em"] - g["data_referencia"]).days
+                             if g.get("prazo_envio_vence_em") and g.get("data_referencia") else None),
         "mensagem_pronta": relatorio.mensagem_guia(res),
     }
 
