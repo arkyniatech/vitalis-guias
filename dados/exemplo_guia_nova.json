@@ -1,0 +1,20 @@
+{
+  "id_guia": "G-2609-0001",
+  "unidade": "Sul",
+  "data_atendimento": "18/09/2026",
+  "paciente": "P-2001",
+  "convenio": "Vitalcard",
+  "carteirinha": "123456789",
+  "cid": "M54.5",
+  "procedimento_codigo": "50000470",
+  "procedimento_descricao": "Sessão de fisioterapia musculoesquelética",
+  "numero_autorizacao": "AUT999001",
+  "autorizacao_validade": "2026-10-10",
+  "autorizacao_sessoes_limite": "10",
+  "sessao_numero_na_autorizacao": "11",
+  "profissional": "Felipe Andrade",
+  "profissional_registro": "",
+  "valor": "62,00",
+  "observacao_recepcao": "",
+  "data_lancamento": "2026-09-19"
+}

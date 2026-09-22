@@ -1,0 +1,21 @@
+"""Configuração por variável de ambiente. Nenhum segredo fica no código."""
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+RAIZ = Path(__file__).resolve().parent.parent
+load_dotenv(RAIZ / ".env")
+
+
+def _env(nome: str, padrao: str = "") -> str:
+    return (os.getenv(nome) or padrao).strip()
+
+
+DATABASE_URL = _env("DATABASE_URL") or f"sqlite:///{RAIZ / 'dados' / 'vitalis.db'}"
+API_KEY = _env("API_KEY")
+DASH_USER = _env("DASH_USER")
+DASH_PASS = _env("DASH_PASS")
+OPENAI_API_KEY = _env("OPENAI_API_KEY")
+OPENAI_MODEL = _env("OPENAI_MODEL", "gpt-4o-mini")
+REGRAS_PATH = RAIZ / _env("REGRAS_PATH", "dados/regras_convenio.json")

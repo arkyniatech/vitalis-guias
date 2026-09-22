@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block titulo %}{{ g.id_guia }} · Vitalis{% endblock %}
+{% block corpo %}
+<h2>Guia {{ g.id_guia }} <span class="tag {{ g.status }}">{{ g.status }}</span>
+  {% if g.glosa_provavel %}<span class="msg">· vai glosar se for enviada assim · {{ g.valor_em_risco|brl }} em risco</span>{% endif %}</h2>
+
+<h2>Achados ({{ g.achados|length }})</h2>
+{% if g.achados %}
+<table>
+  <tr><th>Tipo</th><th>Severidade</th><th>Campo</th><th>O que está errado</th><th>O que fazer</th></tr>
+  {% for a in g.achados %}
+  <tr><td><b>{{ rotulo(a.codigo) }}</b></td><td><span class="tag {{ a.severidade }}">{{ a.severidade }}</span></td>
+      <td>{{ a.campo }}</td><td>{{ a.mensagem }}</td><td class="acao">{{ a.acao }}</td></tr>
+  {% endfor %}
+</table>
+{% else %}<div class="vazio">Nenhum problema. Pode enviar.</div>{% endif %}
+
+<h2>Como a regra leu a guia</h2>
+<dl>
+  <dt>Unidade</dt><dd>{{ g.unidade }}</dd>
+  <dt>Atendimento</dt><dd>{{ g.data_atendimento }}</dd>
+  <dt>Lançamento</dt><dd>{{ g.data_lancamento }}</dd>
+  <dt>Paciente</dt><dd>{{ g.paciente }} · carteirinha {{ g.carteirinha }}</dd>
+  <dt>Convênio</dt><dd>{{ g.convenio }}</dd>
+  <dt>CID</dt><dd>{{ g.cid or '(vazio)' }}</dd>
+  <dt>Procedimento</dt><dd>{{ g.procedimento_codigo }} · {{ g.procedimento_descricao }}</dd>
+  <dt>Autorização</dt><dd>{{ g.numero_autorizacao or '(vazio)' }} · validade {{ g.autorizacao_validade }} · sessão {{ g.sessao_numero }} de {{ g.autorizacao_sessoes_limite }}</dd>
+  <dt>Profissional</dt><dd>{{ g.profissional }} · {{ g.profissional_registro or '(sem registro)' }}</dd>
+  <dt>Valor</dt><dd>{{ g.valor|brl }}</dd>
+  <dt>Observação da recepção</dt><dd>{{ g.observacao_recepcao or '(vazia)' }}{% if g.obs_intencao and g.obs_intencao != 'sem_acao' %} <span class="msg">→ lida como <b>{{ g.obs_intencao }}</b> ({{ g.obs_fonte }})</span>{% endif %}</dd>
+  <dt>Prazo de envio</dt><dd>até {{ g.prazo_envio_vence_em }}</dd>
+  <dt>Verificada</dt><dd>{{ g.verificada_em }} · referência {{ g.data_referencia }} · origem {{ g.origem }}</dd>
+</dl>
+
+<h2>Como chegou (bruto)</h2>
+<dl>{% for k, v in g.dados_brutos.items() %}<dt>{{ k }}</dt><dd>{{ v if v else '(vazio)' }}</dd>{% endfor %}</dl>
+{% endblock %}

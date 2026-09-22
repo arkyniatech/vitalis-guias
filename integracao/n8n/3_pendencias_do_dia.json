@@ -1,0 +1,221 @@
+{
+  "name": "Vitalis · 3. Pendências do dia (Carla e recepção)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Vitalis · 3. Pendências do dia (Carla e recepção)\n\nSegunda a sexta, 8h. Lista o que ainda precisa ser resolvido antes do envio (bloqueadas, pendentes e pra corrigir), por unidade, com a ação de cada guia.\n\nSe não tiver nada, não manda nada: mensagem vazia vira ruído e ninguém lê mais.",
+        "height": 280,
+        "width": 480,
+        "color": 6
+      },
+      "id": "f60ac012-544d-40ed-8207-5b725f483231",
+      "name": "Sobre",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -340
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "c0d060df-168c-4776-840f-ea4657a0faf9",
+      "name": "Seg a sex 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "50c27876-eb32-4373-941d-155944f6664c",
+      "name": "Testar agora",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7214d426-9ecd-476d-b589-e915293021b9",
+              "name": "app_url",
+              "value": "https://COLOQUE-AQUI-O-DOMINIO-DO-APP",
+              "type": "string"
+            },
+            {
+              "id": "5b14310d-4630-4ec2-b8c9-8c1189fd89e1",
+              "name": "chat_carla",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "2417dc91-84c3-4bac-96a3-ebbe9bd781c5",
+              "name": "dias",
+              "value": "30",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8fcb862c-7b73-491b-b57e-69d161b6fc25",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        80
+      ],
+      "notes": "Único lugar pra mexer: domínio do app e chats do Telegram.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.app_url }}/relatorio?desde={{ $today.minus({ days: Number($('Config').first().json.dias) }).toISODate() }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "2c54d24e-7986-4205-9bd4-078dfbac9121",
+      "name": "Buscar pendências",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Vitalis API (X-API-Key)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Telegram (Markdown simples) quebra com _ [ ` soltos no texto. O * a gente usa pra negrito.\nconst md = (t) => String(t ?? '').replace(/([_\\[`])/g, '\\\\$1');\n\nconst rel = $input.first().json;\nconst cfg = $('Config').first().json;\nif (!rel.com_problema) return [];   // nada pra resolver: não manda mensagem\nconst texto = md(rel.mensagem_pendencias) + `\\n\\nPainel: ${cfg.app_url}/`;\nreturn [{ json: { chat: cfg.chat_carla, texto, com_problema: rel.com_problema } }];\n"
+      },
+      "id": "d2756d89-bef8-434b-86c3-a9b4cc14c84e",
+      "name": "Tem pendência?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "appendAttribution": false
+        }
+      },
+      "id": "6e05ba21-c602-433c-95dd-7803416d12b6",
+      "name": "Enviar à Carla",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        80
+      ],
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram"
+        }
+      },
+      "webhookId": "aa95c7bc-5611-46eb-88f2-a75fd5d5fc41"
+    }
+  ],
+  "connections": {
+    "Seg a sex 8h": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Testar agora": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Buscar pendências",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar pendências": {
+      "main": [
+        [
+          {
+            "node": "Tem pendência?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem pendência?": {
+      "main": [
+        [
+          {
+            "node": "Enviar à Carla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -1,0 +1,496 @@
+{
+ "G-2608-0001": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0002": {
+  "status": "bloqueada",
+  "valor_em_risco": 90.0,
+  "codigos": [
+   "PROCEDIMENTO_NAO_COBERTO"
+  ]
+ },
+ "G-2608-0003": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0004": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA"
+  ]
+ },
+ "G-2608-0005": {
+  "status": "atencao",
+  "valor_em_risco": 0.0,
+  "codigos": [
+   "OBS_REEMBOLSO"
+  ]
+ },
+ "G-2608-0006": {
+  "status": "bloqueada",
+  "valor_em_risco": 140.0,
+  "codigos": [
+   "PROCEDIMENTO_NAO_COBERTO",
+   "SESSAO_EXCEDE_LIMITE"
+  ]
+ },
+ "G-2608-0007": {
+  "status": "bloqueada",
+  "valor_em_risco": 140.0,
+  "codigos": [
+   "OBS_REEMBOLSO",
+   "PROCEDIMENTO_NAO_COBERTO"
+  ]
+ },
+ "G-2608-0008": {
+  "status": "bloqueada",
+  "valor_em_risco": 70.0,
+  "codigos": [
+   "SESSAO_EXCEDE_LIMITE"
+  ]
+ },
+ "G-2608-0009": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0010": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0011": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0012": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0013": {
+  "status": "corrigir",
+  "valor_em_risco": 90.0,
+  "codigos": [
+   "CAMPO_OBRIGATORIO_AUSENTE"
+  ]
+ },
+ "G-2608-0014": {
+  "status": "bloqueada",
+  "valor_em_risco": 70.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA"
+  ]
+ },
+ "G-2608-0015": {
+  "status": "atencao",
+  "valor_em_risco": 0.0,
+  "codigos": [
+   "OBS_REEMBOLSO"
+  ]
+ },
+ "G-2608-0016": {
+  "status": "corrigir",
+  "valor_em_risco": 0.0,
+  "codigos": [
+   "FORMATO"
+  ]
+ },
+ "G-2608-0017": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0018": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0019": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0020": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0021": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "CAMPO_OBRIGATORIO_AUSENTE"
+  ]
+ },
+ "G-2608-0022": {
+  "status": "atencao",
+  "valor_em_risco": 0.0,
+  "codigos": [
+   "OBS_REEMBOLSO"
+  ]
+ },
+ "G-2608-0023": {
+  "status": "bloqueada",
+  "valor_em_risco": 70.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA"
+  ]
+ },
+ "G-2608-0024": {
+  "status": "bloqueada",
+  "valor_em_risco": 90.0,
+  "codigos": [
+   "PROCEDIMENTO_NAO_COBERTO"
+  ]
+ },
+ "G-2608-0025": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0026": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "SESSAO_EXCEDE_LIMITE"
+  ]
+ },
+ "G-2608-0027": {
+  "status": "corrigir",
+  "valor_em_risco": 0.0,
+  "codigos": [
+   "FORMATO"
+  ]
+ },
+ "G-2608-0028": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA",
+   "OBS_REEMBOLSO"
+  ]
+ },
+ "G-2608-0029": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0030": {
+  "status": "corrigir",
+  "valor_em_risco": 70.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA"
+  ]
+ },
+ "G-2608-0031": {
+  "status": "bloqueada",
+  "valor_em_risco": 70.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA"
+  ]
+ },
+ "G-2608-0032": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA",
+   "OBS_REEMBOLSO"
+  ]
+ },
+ "G-2608-0033": {
+  "status": "corrigir",
+  "valor_em_risco": 70.0,
+  "codigos": [
+   "CAMPO_OBRIGATORIO_AUSENTE"
+  ]
+ },
+ "G-2608-0034": {
+  "status": "atencao",
+  "valor_em_risco": 0.0,
+  "codigos": [
+   "OBS_REMARCACAO"
+  ]
+ },
+ "G-2608-0035": {
+  "status": "bloqueada",
+  "valor_em_risco": 90.0,
+  "codigos": [
+   "PROCEDIMENTO_NAO_COBERTO"
+  ]
+ },
+ "G-2608-0036": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0037": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0038": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0039": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "OBS_FATURAR_PARTICULAR"
+  ]
+ },
+ "G-2608-0040": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0041": {
+  "status": "pendente",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "AUTORIZACAO_VERBAL_PENDENTE"
+  ]
+ },
+ "G-2608-0042": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0043": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0044": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0045": {
+  "status": "bloqueada",
+  "valor_em_risco": 55.0,
+  "codigos": [
+   "REGISTRO_INCOMPATIVEL"
+  ]
+ },
+ "G-2608-0046": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA"
+  ]
+ },
+ "G-2608-0047": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA",
+   "OBS_REEMBOLSO"
+  ]
+ },
+ "G-2608-0048": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0049": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA"
+  ]
+ },
+ "G-2608-0050": {
+  "status": "bloqueada",
+  "valor_em_risco": 70.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA"
+  ]
+ },
+ "G-2608-0051": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "CAMPO_OBRIGATORIO_AUSENTE"
+  ]
+ },
+ "G-2608-0052": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0053": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0054": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0055": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0056": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "CAMPO_OBRIGATORIO_AUSENTE",
+   "SESSAO_EXCEDE_LIMITE"
+  ]
+ },
+ "G-2608-0057": {
+  "status": "bloqueada",
+  "valor_em_risco": 90.0,
+  "codigos": [
+   "GUIA_DUPLICADA"
+  ]
+ },
+ "G-2608-0058": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0059": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0060": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0061": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "CAMPO_OBRIGATORIO_AUSENTE"
+  ]
+ },
+ "G-2608-0062": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0063": {
+  "status": "bloqueada",
+  "valor_em_risco": 70.0,
+  "codigos": [
+   "CAMPO_OBRIGATORIO_AUSENTE"
+  ]
+ },
+ "G-2608-0064": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "SESSAO_EXCEDE_LIMITE"
+  ]
+ },
+ "G-2608-0065": {
+  "status": "corrigir",
+  "valor_em_risco": 0.0,
+  "codigos": [
+   "FORMATO"
+  ]
+ },
+ "G-2608-0066": {
+  "status": "atencao",
+  "valor_em_risco": 0.0,
+  "codigos": [
+   "OBS_REEMBOLSO"
+  ]
+ },
+ "G-2608-0067": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0068": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0069": {
+  "status": "bloqueada",
+  "valor_em_risco": 90.0,
+  "codigos": [
+   "OBS_CODIGO_ERRADO"
+  ]
+ },
+ "G-2608-0070": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0071": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0072": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA"
+  ]
+ },
+ "G-2608-0073": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0074": {
+  "status": "bloqueada",
+  "valor_em_risco": 55.0,
+  "codigos": [
+   "REGISTRO_INCOMPATIVEL"
+  ]
+ },
+ "G-2608-0075": {
+  "status": "bloqueada",
+  "valor_em_risco": 90.0,
+  "codigos": [
+   "AUTORIZACAO_VENCIDA"
+  ]
+ },
+ "G-2608-0076": {
+  "status": "bloqueada",
+  "valor_em_risco": 70.0,
+  "codigos": [
+   "GUIA_DUPLICADA"
+  ]
+ },
+ "G-2608-0077": {
+  "status": "bloqueada",
+  "valor_em_risco": 62.0,
+  "codigos": [
+   "SESSAO_EXCEDE_LIMITE"
+  ]
+ },
+ "G-2608-0078": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0079": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ },
+ "G-2608-0080": {
+  "status": "ok",
+  "valor_em_risco": 0.0,
+  "codigos": []
+ }
+}

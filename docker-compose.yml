@@ -1,0 +1,9 @@
+# Pra rodar local: cp .env.example .env && docker compose up --build
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./dados:/srv/dados

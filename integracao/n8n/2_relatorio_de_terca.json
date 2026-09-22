@@ -1,0 +1,221 @@
+{
+  "name": "Vitalis · 2. Relatório de terça (Dr. Renato)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Vitalis · 2. Relatório de terça (Dr. Renato)\n\nToda terça, 7h (horário de Brasília), antes da reunião das 7h30.\n\nBusca `GET /relatorio` dos últimos 7 dias de lançamento e manda o resumo pronto: guias verificadas, quantas com problema, de que tipo, por unidade e quanto está em risco (travado x recuperável).\n\nO texto vem pronto do app (`mensagem_whatsapp`). Aqui só entrega.",
+        "height": 300,
+        "width": 480,
+        "color": 5
+      },
+      "id": "1e107daa-1107-4ffc-8510-f980d0b6962c",
+      "name": "Sobre",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 2"
+            }
+          ]
+        }
+      },
+      "id": "025c227e-f306-47f5-af80-8d24d49791b9",
+      "name": "Terça 7h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "b5a61b87-0f28-4133-bc16-8ba5e0011a59",
+      "name": "Testar agora",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c8a55d63-0661-4118-9a4b-579b2fbaac14",
+              "name": "app_url",
+              "value": "https://COLOQUE-AQUI-O-DOMINIO-DO-APP",
+              "type": "string"
+            },
+            {
+              "id": "b0312eea-4f15-4abe-bb4d-c21164dd3c4b",
+              "name": "chat_renato",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "d62b54ee-dc88-4e45-a9d1-060f4385d2d0",
+              "name": "dias",
+              "value": "7",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8dfe705d-5da7-4f33-b78d-a4e61d1519c9",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        80
+      ],
+      "notes": "Único lugar pra mexer: domínio do app e chats do Telegram.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.app_url }}/relatorio?desde={{ $today.minus({ days: Number($('Config').first().json.dias) }).toISODate() }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "880e21e9-aa94-42fb-aae3-89f714ebb9dc",
+      "name": "Buscar relatório",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Vitalis API (X-API-Key)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Telegram (Markdown simples) quebra com _ [ ` soltos no texto. O * a gente usa pra negrito.\nconst md = (t) => String(t ?? '').replace(/([_\\[`])/g, '\\\\$1');\n\nconst rel = $input.first().json;\nconst cfg = $('Config').first().json;\nconst corpo = md(rel.mensagem_whatsapp);\nconst texto = `${corpo}\\n\\nPainel completo: ${cfg.app_url}/`;\nreturn [{ json: { chat: cfg.chat_renato, texto, verificadas: rel.verificadas,\n                  com_problema: rel.com_problema, valor_em_risco: rel.valor_em_risco } }];\n"
+      },
+      "id": "aeb02310-94e2-4483-8941-2643b66e3cce",
+      "name": "Montar mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "appendAttribution": false
+        }
+      },
+      "id": "ea46dccd-15bc-42a5-a9be-c95c45992119",
+      "name": "Enviar ao Dr. Renato",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        80
+      ],
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram"
+        }
+      },
+      "webhookId": "3764b4d7-f3b7-43dc-821e-bd59ba6daac4"
+    }
+  ],
+  "connections": {
+    "Terça 7h": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Testar agora": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Buscar relatório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar relatório": {
+      "main": [
+        [
+          {
+            "node": "Montar mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar mensagem": {
+      "main": [
+        [
+          {
+            "node": "Enviar ao Dr. Renato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
