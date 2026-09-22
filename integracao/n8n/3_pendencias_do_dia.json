@@ -55,7 +55,13 @@
             {
               "id": "7214d426-9ecd-476d-b589-e915293021b9",
               "name": "app_url",
-              "value": "https://COLOQUE-AQUI-O-DOMINIO-DO-APP",
+              "value": "https://clinica-vitalis.arkynia.com.br",
+              "type": "string"
+            },
+            {
+              "id": "a0c1d2e3-0000-4000-8000-000000000003",
+              "name": "whatsapp_api",
+              "value": "https://SEU-SERVIDOR.uazapi.com",
               "type": "string"
             },
             {
@@ -82,7 +88,7 @@
         220,
         80
       ],
-      "notes": "Único lugar pra mexer: domínio do app e chats do Telegram.",
+      "notes": "Único lugar pra mexer: domínio do app, servidor da uazapi e o WhatsApp da Carla.",
       "notesInFlow": true
     },
     {
@@ -114,7 +120,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Telegram (Markdown simples) quebra com _ [ ` soltos no texto. O * a gente usa pra negrito.\nconst md = (t) => String(t ?? '').replace(/([_\\[`])/g, '\\\\$1');\n\nconst rel = $input.first().json;\nconst cfg = $('Config').first().json;\nif (!rel.com_problema) return [];   // nada pra resolver: não manda mensagem\nconst texto = md(rel.mensagem_pendencias) + `\\n\\nPainel: ${cfg.app_url}/`;\nreturn [{ json: { chat: cfg.chat_carla, texto, com_problema: rel.com_problema } }];\n"
+        "jsCode": "// WhatsApp usa *negrito* igual ao texto que vem do app: não precisa escapar nada.\nconst rel = $input.first().json;\nconst cfg = $('Config').first().json;\nif (!rel.com_problema) return [];   // nada pra resolver: não manda mensagem\nconst texto = `${rel.mensagem_pendencias}\\n\\nPainel: ${cfg.app_url}/`;\nreturn [{ json: { chat: cfg.chat_carla, texto, com_problema: rel.com_problema } }];\n"
       },
       "id": "d2756d89-bef8-434b-86c3-a9b4cc14c84e",
       "name": "Tem pendência?",
@@ -127,27 +133,35 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $json.chat }}",
-        "text": "={{ $json.texto }}",
-        "additionalFields": {
-          "parse_mode": "Markdown",
-          "appendAttribution": false
+        "method": "POST",
+        "url": "={{ $('Config').first().json.whatsapp_api }}/send/text",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.chat, text: $json.texto }) }}",
+        "options": {
+          "timeout": 20000
         }
       },
       "id": "6e05ba21-c602-433c-95dd-7803416d12b6",
       "name": "Enviar à Carla",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         880,
         80
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
-        "telegramApi": {
-          "name": "Telegram"
+        "httpHeaderAuth": {
+          "name": "WhatsApp uazapi (token)"
         }
       },
-      "webhookId": "aa95c7bc-5611-46eb-88f2-a75fd5d5fc41"
+      "notesInFlow": true,
+      "notes": "WhatsApp via uazapi (POST /send/text)"
     }
   ],
   "connections": {

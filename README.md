@@ -50,7 +50,7 @@ Extrapolando pras 900 guias/mês, seriam uns R$ 30 mil/mês em risco, o dobro da
 ```
                  ┌─ POST /guias          JSON, uma guia ou várias (é o que o n8n / sistema chama)
   guia entra ──┼─ POST /guias/lote     CSV exportado do sistema (o que a Carla tem hoje)
-                 └─ n8n: webhook "guia lançada" → POST /guias → alerta Telegram da unidade
+                 └─ n8n: webhook "guia lançada" → POST /guias → alerta WhatsApp da unidade
                        │
                        ▼
              validador/normalizador.py   03/08/2026 → 2026-08-03, "62,00" → 62.0, anota o que converteu
@@ -136,28 +136,28 @@ Resposta na hora (resumida):
 - Convênio desconhecido e valor ilegível viram achado, não erro. Corpo que não é JSON, guia sem `id_guia` e `data_referencia` inválida voltam 422 com mensagem clara.
 - No lote, uma linha ruim entra na lista `erros` e as outras seguem.
 - Mandar a mesma `id_guia` de novo atualiza a conferência, não duplica.
-- `mensagem` já vem pronta pro WhatsApp/Telegram da recepção.
+- `mensagem` já vem pronta pro WhatsApp da recepção (`*negrito*` no formato do WhatsApp).
 
 ## n8n (pasta "Clínica Vitalis")
 
-Três workflows em [`integracao/n8n/`](integracao/n8n), prontos pra importar. Todos têm um nó **Config** (único lugar pra mexer: domínio do app e chats do Telegram) e um post-it explicando o fluxo.
+Três workflows em [`integracao/n8n/`](integracao/n8n), prontos pra importar. Todos têm um nó **Config** (único lugar pra mexer: domínio do app, servidor da uazapi e o WhatsApp de cada pessoa) e um post-it explicando o fluxo. As mensagens saem pelo WhatsApp via [uazapi](https://uazapi.com) (`POST /send/text`).
 
 | Workflow | Quando | O que faz |
 |---|---|---|
-| **1. Conferir guia no lançamento** | webhook `POST /webhook/vitalis/guia` | Recebe a guia do sistema, chama `POST /guias`, devolve o resultado pra quem chamou e, se a guia não pode ir (bloqueada, pendente, corrigir), avisa o Telegram da unidade com a ação. Se o app cair, devolve 502 e avisa a Carla: nenhuma guia passa sem conferência sem alguém saber. |
+| **1. Conferir guia no lançamento** | webhook `POST /webhook/vitalis/guia` | Recebe a guia do sistema, chama `POST /guias`, devolve o resultado pra quem chamou e, se a guia não pode ir (bloqueada, pendente, corrigir), avisa o WhatsApp da unidade com a ação. Se o app cair, devolve 502 e avisa a Carla: nenhuma guia passa sem conferência sem alguém saber. |
 | **2. Relatório de terça (Dr. Renato)** | terça 7h | `GET /relatorio` dos últimos 7 dias e manda o resumo antes da reunião das 7h30. |
 | **3. Pendências do dia (Carla e recepção)** | seg a sex 8h | Lista o que resolver antes do envio, por unidade, com a ação de cada guia. Sem pendência, não manda nada. |
 
-As mensagens vêm prontas do app (`mensagem`, `mensagem_whatsapp`, `mensagem_pendencias`). O n8n só agenda e entrega, e trocar Telegram por WhatsApp é trocar o último nó.
+As mensagens vêm prontas do app (`mensagem`, `mensagem_whatsapp`, `mensagem_pendencias`). O n8n só agenda e entrega. Trocar de canal (Evolution API, WhatsApp Cloud API, Telegram, e-mail) é trocar o último nó.
 
-Credenciais a criar no n8n: **Vitalis API (X-API-Key)** (tipo Header Auth, nome `X-API-Key`, valor = `API_KEY` do app) e **Telegram** (bot).
+Credenciais a criar no n8n, as duas do tipo **Header Auth**: **Vitalis API (X-API-Key)** (nome `X-API-Key`, valor = `API_KEY` do app) e **WhatsApp uazapi (token)** (nome `token`, valor = token da instância na uazapi).
 
 **Importar (uns 2 minutos):**
 
 1. No n8n, em Overview → Workflows, crie a pasta **Clínica Vitalis**.
 2. Dentro dela: Create workflow → menu `...` → Import from File → escolha `1_conferir_guia_no_lancamento.json`. Salve. Repita com o 2 e o 3.
-3. Em cada workflow, abra o nó **Config** e troque `app_url` pelo domínio do app. Preencha os chats do Telegram (id do grupo ou pessoa).
-4. Nos nós HTTP e Telegram, selecione as duas credenciais no dropdown.
+3. Em cada workflow, abra o nó **Config**: `app_url` = domínio do app, `whatsapp_api` = servidor da uazapi (ex. `https://suaempresa.uazapi.com`) e os `chat_*` com o WhatsApp de cada pessoa (DDI + DDD + número, ex. `5511999998888`).
+4. Nos nós HTTP, selecione a credencial certa no dropdown: **Vitalis API** nos que chamam o app, **WhatsApp uazapi** nos que enviam mensagem.
 5. Teste: no 2 e no 3, clique em "Testar agora". No 1, mande a guia de exemplo pro webhook de teste: `curl -X POST https://SEU-N8N/webhook-test/vitalis/guia -H "Content-Type: application/json" -d @dados/exemplo_guia_nova.json`.
 6. Ative os três.
 
@@ -262,12 +262,60 @@ Testes: `python -m pytest`. São 47, entre eles:
 - **Consulta no Plano Bem não é erro de digitação, é regra do convênio.** A ação diz "faturar como particular", que é o que o JSON manda.
 - **Mesmo código de paciente com carteirinha diferente não é duplicata** (G-2608-0017 e 0060). Duplicata compara o que o convênio confere: carteirinha e autorização.
 
-## O que faltou (teto de 6 horas)
+## Como fiz
+
+### Ferramentas e por quê
+
+| Ferramenta | Pra quê | Por que essa |
+|---|---|---|
+| **Python + FastAPI** | Regras, API e painel | Regra de negócio precisa de teste. Cada regra é uma função com nome, e os 47 testes rodam em 3 segundos. Num Code node do n8n isso não dá pra testar nem explicar linha a linha. |
+| **Postgres (Supabase)** | Guias, achados e cache da leitura das observações | Postgres gerenciado, sem servidor pra cuidar. Localmente e nos testes, o mesmo código roda em SQLite. |
+| **EasyPanel + Docker** | App no ar com HTTPS | `git push` e Implantar. O `Dockerfile` é o mesmo que roda local. |
+| **n8n** | Receber a guia, agendar e entregar as mensagens | É onde ele é bom: webhook, cron e envio sem código. A regra fica fora dele. |
+| **WhatsApp via uazapi** | Alertas pra recepção, relatório do Dr. Renato e pendências da Carla | É o canal que a recepção e o médico já usam. A mensagem chega onde eles estão, sem instalar nada. |
+| **OpenAI `gpt-4o-mini`** | Ler a observação livre da recepção | Barato, temperatura 0 e resposta em JSON. É opcional: sem chave, o fallback por palavra-chave assume. |
+| **MCP (SDK Python oficial)** | Deixar um assistente de IA consultar as regras e conferir guias | Usa o mesmo motor do app, então a IA responde com a regra de verdade, não com palpite. |
+| **Claude Code** | Par de programação do começo ao fim | Escreveu a maior parte do código, dos testes e das telas, sempre a partir do que eu pedia e revisava. |
+
+### O que a IA gerou e o que eu mudei
+
+A IA escreveu a maior parte do código. Eu descrevi o problema, revisei cada entrega e mudei o rumo quando a solução não servia pra operação da clínica. Decisões minhas que mudaram o que tinha sido gerado:
+
+1. **Telas no lugar de JSON cru.** O painel tinha botões que abriam `/relatorio` e `/regras` em JSON. Quem opera é a Carla, não um desenvolvedor. Pedi as regras dos convênios em cartões, uma tela de integração e as mensagens mostradas como chegam no WhatsApp. O JSON continua existindo, porque é o que o n8n usa.
+2. **Botão "Importar guias".** A guia nova só entrava pela API ou por script no terminal. Pedi um botão no painel, com CSV arrastável e formulário de uma guia, que devolve OK ou PENDENTE na hora. É o jeito da Carla testar sem depender de integração.
+3. **WhatsApp em vez de Telegram.** Os workflows vieram com Telegram. Troquei pra WhatsApp via uazapi porque é onde a recepção e o Dr. Renato vivem. Relatório que exige instalar outro app não é lido.
+4. **Banco compartilhado, com isolamento.** Por ser um projeto provisório, usei um banco Postgres que já existia, em vez de criar outro. Pra não misturar com as outras tabelas, o app ganhou a variável `DB_SCHEMA` e tudo fica em `vitalis.*`. O pooler do Supabase ignora o `search_path` que vai na URL, então o schema é aplicado a cada conexão. Pra apagar tudo depois, basta um `drop schema vitalis cascade`.
+5. **Painel com cara de produto.** Pedi um visual mais sofisticado, com o nome do operador, saudação, atalhos de período ("últimos 7 dias" é o que o Dr. Renato abre na terça), o dinheiro em risco em destaque e botão de voltar na guia. Funciona no celular.
+
+### Onde estão os prompts
+
+- **Leitura da observação** (o único lugar onde a IA decide algo, e só a intenção, não o status): constante `PROMPT` em [`app/validador/observacao.py`](app/validador/observacao.py).
+- **Skill** (instruções que ensinam o Claude a atender a recepção usando o MCP): [`skills/conferir-guia/SKILL.md`](skills/conferir-guia/SKILL.md).
+
+### O que ficou de fora e por quê
 
 - Integração real com a API do sistema de gestão (não tenho acesso). O `POST /guias` e o webhook do n8n são o contrato; falta o gatilho do lado do sistema.
 - Botão "resolvido" no dashboard pra recepção marcar o que corrigiu. Hoje a guia sai da lista quando é reenviada corrigida, o que é o fluxo certo com a integração.
 - Feriados no cálculo de dias úteis da autorização verbal.
 - Histórico de glosa real pra calibrar o `glosa_provavel` (hoje é regra, não estatística).
+- **Somar sessões entre guias da mesma autorização.** O esclarecimento 3 diz que as 80 guias são um recorte, então conferi só o que cada guia declara.
+- **IA ligada em produção.** O app suporta, mas deixei desligada pra resposta bater 100% com o gabarito. Com a chave, ela entra sem mudar código.
+
+### Como testei
+
+- **47 testes automáticos** (`python -m pytest`), entre eles:
+  - o **gabarito das 80 guias de agosto**: se uma regra mudar e uma guia trocar de status, o teste diz qual;
+  - as 80 guias entrando uma por uma pela API, batendo com o lote;
+  - lote reenviado, invertido e embaralhado dando o mesmo resultado;
+  - um teste pra cada esclarecimento da Expert;
+  - IA respondendo certo, respondendo lixo e fora do ar;
+  - o MCP devolvendo a mesma decisão e os mesmos números do app;
+  - importação pela tela, incluindo a recusa de envio vindo de fora do painel.
+- **Em produção:** `/saude`, painel e API recusando acesso sem credencial, carga das 80 guias batendo com o gabarito (80 · 39 · R$ 2.642,00) e guia de teste criada e apagada.
+- **Planilha de setembro** ([`dados/guias_setembro_teste.csv`](dados/guias_setembro_teste.csv)): 35 guias de 21 a 24/09 com um caso de cada problema, pra testar o relatório de terça e as pendências do dia com dados recentes.
+- **MCP** testado por um cliente MCP de verdade (stdio), inclusive com uma guia escrita do jeito que a recepção escreve.
+- **n8n:** o relatório de terça executado manualmente contra o app no ar, com a chave da API. O envio pelo WhatsApp é testado com os três workflows publicados.
+- **Visual** conferido no navegador, em desktop e em celular (375px).
 
 ## Estrutura
 

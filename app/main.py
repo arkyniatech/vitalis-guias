@@ -49,7 +49,7 @@ basic = HTTPBasic(auto_error=False)
 
 
 def _mensagem_html(texto: str) -> Markup:
-    """Mensagem de Telegram/WhatsApp (*negrito*) em HTML, pra mostrar no painel como vai chegar."""
+    """Mensagem de WhatsApp (*negrito*) em HTML, pra mostrar no painel como vai chegar."""
     return Markup(re.sub(r"\*([^*\n]+)\*", r"<b>\1</b>", str(escape(texto or ""))))
 
 

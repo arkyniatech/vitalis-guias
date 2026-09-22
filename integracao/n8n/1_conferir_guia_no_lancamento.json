@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Vitalis · 1. Conferir guia no lançamento\n\nO sistema de gestão (ou quem lançar a guia) faz **POST** neste webhook com a guia em JSON, no mesmo formato do CSV (id_guia, convenio, numero_autorizacao...).\n\n1. Manda pro app `POST /guias`, que confere na hora (regras + leitura da observação).\n2. Devolve o resultado pra quem chamou: status, achados, ação e R$ em risco.\n3. Se a guia não pode ir como está (bloqueada, pendente ou corrigir), avisa no Telegram da unidade com a ação.\n\nSe o app não responder, devolve 502 e avisa a Carla.",
+        "content": "## Vitalis · 1. Conferir guia no lançamento\n\nO sistema de gestão (ou quem lançar a guia) faz **POST** neste webhook com a guia em JSON, no mesmo formato do CSV (id_guia, convenio, numero_autorizacao...).\n\n1. Manda pro app `POST /guias`, que confere na hora (regras + leitura da observação).\n2. Devolve o resultado pra quem chamou: status, achados, ação e R$ em risco.\n3. Se a guia não pode ir como está (bloqueada, pendente ou corrigir), avisa no WhatsApp da unidade (uazapi) com a ação.\n\nSe o app não responder, devolve 502 e avisa a Carla.",
         "height": 340,
         "width": 520,
         "color": 4
@@ -41,7 +41,13 @@
             {
               "id": "48f88d72-7a56-4ad1-860a-4df70a0b094d",
               "name": "app_url",
-              "value": "https://COLOQUE-AQUI-O-DOMINIO-DO-APP",
+              "value": "https://clinica-vitalis.arkynia.com.br",
+              "type": "string"
+            },
+            {
+              "id": "a0c1d2e3-0000-4000-8000-000000000001",
+              "name": "whatsapp_api",
+              "value": "https://SEU-SERVIDOR.uazapi.com",
               "type": "string"
             },
             {
@@ -80,7 +86,7 @@
         220,
         0
       ],
-      "notes": "Único lugar pra mexer: domínio do app e chats do Telegram.",
+      "notes": "Único lugar pra mexer: domínio do app, servidor da uazapi e o WhatsApp de cada unidade e da Carla (DDI+DDD+número).",
       "notesInFlow": true
     },
     {
@@ -130,7 +136,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Telegram (Markdown simples) quebra com _ [ ` soltos no texto. O * a gente usa pra negrito.\nconst md = (t) => String(t ?? '').replace(/([_\\[`])/g, '\\\\$1');\n\nconst r = $input.first().json;\n// ok e atenção não geram alerta: a guia pode seguir. O resto a recepção resolve antes de enviar.\nif (!['bloqueada', 'pendente', 'corrigir'].includes(r.status)) return [];\nconst cfg = $('Config').first().json;\nconst chats = { Centro: cfg.chat_centro, Norte: cfg.chat_norte, Sul: cfg.chat_sul };\nconst chat = chats[r.unidade] || cfg.chat_carla;\nif (!chat) return [];   // chat ainda não configurado: não quebra, só não avisa\nconst texto = md(r.mensagem) + `\\n\\nPainel: ${cfg.app_url}/guias/${r.id_guia}`;\nreturn [{ json: { chat, texto, id_guia: r.id_guia, status: r.status } }];\n"
+        "jsCode": "// WhatsApp usa *negrito* igual ao texto que vem do app: não precisa escapar nada.\nconst r = $input.first().json;\n// ok e atenção não geram alerta: a guia pode seguir. O resto a recepção resolve antes de enviar.\nif (!['bloqueada', 'pendente', 'corrigir'].includes(r.status)) return [];\nconst cfg = $('Config').first().json;\nconst chats = { Centro: cfg.chat_centro, Norte: cfg.chat_norte, Sul: cfg.chat_sul };\nconst chat = chats[r.unidade] || cfg.chat_carla;\nif (!chat) return [];   // número ainda não configurado: não quebra, só não avisa\nconst texto = `${r.mensagem}\\n\\nPainel: ${cfg.app_url}/guias/${r.id_guia}`;\nreturn [{ json: { chat, texto, id_guia: r.id_guia, status: r.status } }];\n"
       },
       "id": "215f9310-1438-428e-9b76-7d7b1f60df71",
       "name": "Precisa avisar?",
@@ -143,27 +149,35 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $json.chat }}",
-        "text": "={{ $json.texto }}",
-        "additionalFields": {
-          "parse_mode": "Markdown",
-          "appendAttribution": false
+        "method": "POST",
+        "url": "={{ $('Config').first().json.whatsapp_api }}/send/text",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.chat, text: $json.texto }) }}",
+        "options": {
+          "timeout": 20000
         }
       },
       "id": "3622d389-2b29-47bf-8496-3df31c90a998",
       "name": "Avisar recepção da unidade",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         1120,
         -100
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
-        "telegramApi": {
-          "name": "Telegram"
+        "httpHeaderAuth": {
+          "name": "WhatsApp uazapi (token)"
         }
       },
-      "webhookId": "c9badd56-8ad5-4079-8818-0be53d74e340"
+      "notesInFlow": true,
+      "notes": "WhatsApp via uazapi (POST /send/text)"
     },
     {
       "parameters": {
@@ -184,7 +198,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Telegram (Markdown simples) quebra com _ [ ` soltos no texto. O * a gente usa pra negrito.\nconst md = (t) => String(t ?? '').replace(/([_\\[`])/g, '\\\\$1');\n\nconst cfg = $('Config').first().json;\nif (!cfg.chat_carla) return [];\nconst corpo = $('Guia lançada').first().json.body || {};\nconst erro = $input.first().json.error ?? 'app não respondeu';\nconst texto = `*Conferência fora do ar*\\nA guia ${md(corpo.id_guia || '(sem id)')} não foi conferida.\\n` +\n              `Erro: ${md(typeof erro === 'string' ? erro : JSON.stringify(erro))}\\n` +\n              `Não enviar ao convênio até conferir.`;\nreturn [{ json: { chat: cfg.chat_carla, texto } }];\n"
+        "jsCode": "const cfg = $('Config').first().json;\nif (!cfg.chat_carla) return [];\nconst corpo = $('Guia lançada').first().json.body || {};\nconst erro = $input.first().json.error ?? 'app não respondeu';\nconst texto = `*Conferência fora do ar*\\nA guia ${corpo.id_guia || '(sem id)'} não foi conferida.\\n` +\n              `Erro: ${typeof erro === 'string' ? erro : JSON.stringify(erro)}\\n` +\n              `Não enviar ao convênio até conferir.`;\nreturn [{ json: { chat: cfg.chat_carla, texto } }];\n"
       },
       "id": "9b8b6ff0-a748-44d0-8e77-f02c8d75bddc",
       "name": "Montar alerta de falha",
@@ -197,27 +211,35 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $json.chat }}",
-        "text": "={{ $json.texto }}",
-        "additionalFields": {
-          "parse_mode": "Markdown",
-          "appendAttribution": false
+        "method": "POST",
+        "url": "={{ $('Config').first().json.whatsapp_api }}/send/text",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.chat, text: $json.texto }) }}",
+        "options": {
+          "timeout": 20000
         }
       },
       "id": "10c8bc3f-962e-43ca-8885-c7b6cfe08988",
       "name": "Avisar Carla",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         1120,
         140
       ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
-        "telegramApi": {
-          "name": "Telegram"
+        "httpHeaderAuth": {
+          "name": "WhatsApp uazapi (token)"
         }
       },
-      "webhookId": "4a70cd0f-ac29-4d27-8800-139a00d86a9d"
+      "notesInFlow": true,
+      "notes": "WhatsApp via uazapi (POST /send/text)"
     }
   ],
   "connections": {
