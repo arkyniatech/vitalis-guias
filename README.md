@@ -206,6 +206,17 @@ Pra quem opera a clínica: a pessoa cola a guia do jeito que a recepção escrev
 - **Claude Code**: já vem em `.claude/skills/conferir-guia` (link pra `skills/conferir-guia`). Pra usar em qualquer projeto, copie a pasta pra `~/.claude/skills/`.
 - **Claude Desktop / claude.ai**: compacte a pasta `skills/conferir-guia` em .zip e envie na área de Skills das configurações. Precisa do MCP acima conectado.
 
+### Assistente no painel: a Skill usando o MCP, sem instalar nada
+
+A aba **Assistente** do painel ([`app/assistente.py`](app/assistente.py)) junta as duas peças acima. A cada mensagem, o app:
+
+1. sobe o MCP `vitalis-guias` por stdio e pede a lista de ferramentas, como qualquer cliente MCP;
+2. manda a conversa pro Claude com o `SKILL.md` como instrução e essas ferramentas;
+3. quando o Claude pede `verificar_guia` ou `consultar_regra`, chama no MCP e devolve o resultado;
+4. mostra a resposta no formato da Skill (OK ou PENDENTE, motivo e o que corrigir), com as ferramentas usadas em cima.
+
+Quem avalia consegue ver a Skill e o MCP funcionando só abrindo o painel. Precisa de `ANTHROPIC_API_KEY` no servidor; sem ela, a aba avisa que está desligada e o resto do painel segue normal. Modelo: `ASSISTENTE_MODELO` (padrão `claude-opus-5`), com fallback do servidor ligado em caso de recusa.
+
 ## Os números da terça
 
 `GET /` mostra: verificadas, com problema, dinheiro em risco (travado nas bloqueadas x recuperável em corrigir e pendente), por tipo, por unidade, por convênio, e a lista do que fazer na ordem (bloqueadas primeiro, maior valor primeiro), com a ação de cada uma e até quando enviar. Filtro por data de lançamento.
@@ -224,7 +235,7 @@ python scripts/carregar_lote.py dados/guias_agosto.csv http://localhost:8000 SUA
 
 Ou `docker compose up --build`.
 
-Testes: `python -m pytest`. São 47, entre eles:
+Testes: `python -m pytest`. São 49, entre eles:
 
 - o gabarito das 80 guias (`tests/gabarito_agosto.json`): se alguém mexer numa regra e uma guia mudar de lugar, o teste diz qual;
 - as 80 guias entrando uma por uma pelo `POST /guias`, sem parâmetro nenhum, batendo com o lote;
@@ -252,7 +263,7 @@ Testes: `python -m pytest`. São 47, entre eles:
 
 ## Decisões que eu defenderia na entrevista
 
-- **Python + FastAPI pra regra, n8n pra orquestrar.** Regra em Code node de n8n é difícil de testar e de explicar. Aqui cada regra é uma função com nome e 47 testes rodam em 3 segundos. O n8n fica onde ele é bom: receber a guia, agendar e entregar a mensagem.
+- **Python + FastAPI pra regra, n8n pra orquestrar.** Regra em Code node de n8n é difícil de testar e de explicar. Aqui cada regra é uma função com nome e 49 testes rodam em 5 segundos. O n8n fica onde ele é bom: receber a guia, agendar e entregar a mensagem.
 - **Regras no JSON, não no código.** `regras_convenio.json` é o que a Carla mandou. Mudou o limite do Plano Bem, troca o arquivo. O que é regra da clínica e não do convênio (CREFITO pra fisio, CRM pra médico) está num dicionário só, com comentário dizendo isso.
 - **IA num lugar só, com fallback.** Ver acima.
 - **Conferência no lançamento, sempre.** A mesma guia dá o mesmo resultado entrando por lote, CSV ou API. É o que o esclarecimento 2 pede e o que faz sentido na operação: a guia é conferida quando nasce.
@@ -275,6 +286,7 @@ Testes: `python -m pytest`. São 47, entre eles:
 | **WhatsApp via uazapi** | Alertas pra recepção, relatório do Dr. Renato e pendências da Carla | É o canal que a recepção e o médico já usam. A mensagem chega onde eles estão, sem instalar nada. |
 | **OpenAI `gpt-4o-mini`** | Ler a observação livre da recepção | Barato, temperatura 0 e resposta em JSON. É opcional: sem chave, o fallback por palavra-chave assume. |
 | **MCP (SDK Python oficial)** | Deixar um assistente de IA consultar as regras e conferir guias | Usa o mesmo motor do app, então a IA responde com a regra de verdade, não com palpite. |
+| **Claude (API)** | Assistente do painel | Chama as ferramentas do MCP e segue a Skill. A decisão continua sendo da regra. |
 | **Claude Code** | Par de programação do começo ao fim | Escreveu a maior parte do código, dos testes e das telas, sempre a partir do que eu pedia e revisava. |
 
 ### O que a IA gerou e o que eu mudei
@@ -303,17 +315,19 @@ A IA escreveu a maior parte do código. Eu descrevi o problema, revisei cada ent
 
 ### Como testei
 
-- **47 testes automáticos** (`python -m pytest`), entre eles:
+- **49 testes automáticos** (`python -m pytest`), entre eles:
   - o **gabarito das 80 guias de agosto**: se uma regra mudar e uma guia trocar de status, o teste diz qual;
   - as 80 guias entrando uma por uma pela API, batendo com o lote;
   - lote reenviado, invertido e embaralhado dando o mesmo resultado;
   - um teste pra cada esclarecimento da Expert;
   - IA respondendo certo, respondendo lixo e fora do ar;
   - o MCP devolvendo a mesma decisão e os mesmos números do app;
-  - importação pela tela, incluindo a recusa de envio vindo de fora do painel.
+  - importação pela tela, incluindo a recusa de envio vindo de fora do painel;
+  - o assistente subindo o MCP de verdade e chamando `verificar_guia` (com um Claude falso, pra não gastar API).
 - **Em produção:** `/saude`, painel e API recusando acesso sem credencial, carga das 80 guias batendo com o gabarito (80 · 39 · R$ 2.642,00) e guia de teste criada e apagada.
 - **Planilha de setembro** ([`dados/guias_setembro_teste.csv`](dados/guias_setembro_teste.csv)): 35 guias de 21 a 24/09 com um caso de cada problema, pra testar o relatório de terça e as pendências do dia com dados recentes.
 - **MCP** testado por um cliente MCP de verdade (stdio), inclusive com uma guia escrita do jeito que a recepção escreve.
+- **Assistente** testado com a API do Claude de verdade: guia bagunçada com autorização por telefone voltando PENDENTE, com os 4 motivos e o prazo de 28/09/2026, e pergunta de cobertura do Plano Bem.
 - **n8n:** o relatório de terça executado manualmente contra o app no ar, com a chave da API. O envio pelo WhatsApp é testado com os três workflows publicados.
 - **Visual** conferido no navegador, em desktop e em celular (375px).
 
@@ -325,13 +339,14 @@ app/
   config.py               variáveis de ambiente
   db.py                   tabelas guias, achados, observacoes_classificadas (Postgres ou SQLite)
   relatorio.py            agregações do dashboard e mensagens prontas
+  assistente.py           chat do painel: cliente do MCP + instruções da Skill
   validador/
     normalizador.py       tipos e formatos
     regras_convenio.py    carrega o JSON dos convênios
     observacao.py         IA + fallback + cache
     regras.py             uma função por regra
     motor.py              orquestra, decide status, reconfere duplicata fora de ordem
-  templates/              dashboard.html, guia.html, regras.html, integracao.html, importar.html
+  templates/              dashboard, guia, regras, integracao, importar, assistente
 mcp_vitalis/server.py     MCP: consultar_regra, verificar_guia, buscar_guia, listar_convenios, relatorio_da_semana
 skills/conferir-guia/     Skill pra recepção e faturamento (usa o MCP)
 dados/                    regras_convenio.json, guias_agosto.csv

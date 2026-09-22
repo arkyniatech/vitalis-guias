@@ -7,6 +7,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+COPY mcp_vitalis ./mcp_vitalis
+COPY skills ./skills
 COPY dados/regras_convenio.json ./dados/regras_convenio.json
 COPY dados/guias_agosto.csv ./dados/guias_agosto.csv
 

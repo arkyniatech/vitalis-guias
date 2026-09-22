@@ -4,6 +4,7 @@
   GET  /             dashboard de terça.  GET /relatorio  mesmos números em JSON pro n8n.
   GET  /convenios    regras dos convênios pra gente ler.  GET /integracao  como chamar a API.
   GET  /importar     botão do painel: CSV ou uma guia pela tela, com login.
+  GET  /assistente   chat que usa o MCP vitalis-guias e a Skill conferir-guia.
 """
 from __future__ import annotations
 
@@ -11,6 +12,8 @@ import csv
 import io
 import logging
 import re
+
+import anthropic
 import secrets
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
@@ -23,7 +26,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape
 
-from app import config, db, relatorio
+from app import assistente, config, db, relatorio
 from app.validador import motor
 from app.validador.regras_convenio import REGISTRO_POR_PROCEDIMENTO, carregar
 
@@ -244,6 +247,37 @@ async def importar_guia(request: Request):
 
 
 # --------------------------------------------------------------------------- leitura
+
+@app.get("/assistente", response_class=HTMLResponse, dependencies=[Depends(exige_login)])
+def tela_assistente(request: Request):
+    return templates.TemplateResponse(request, "assistente.html", {
+        "aba": "assistente", "ligado": bool(config.ANTHROPIC_API_KEY), "modelo": config.ASSISTENTE_MODELO})
+
+
+@app.post("/assistente/mensagem", dependencies=[Depends(exige_login)])
+async def mensagem_assistente(request: Request):
+    """Recebe o histórico (só texto) e devolve a resposta e as ferramentas do MCP que foram usadas."""
+    _mesma_origem(request)
+    try:
+        corpo = await request.json()
+        return await assistente.responder(corpo.get("historico") or [])
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except anthropic.RateLimitError:
+        return JSONResponse({"texto": "Muita gente perguntando ao mesmo tempo. Tente de novo em alguns segundos.",
+                             "ferramentas": [], "erro": "limite"}, status_code=429)
+    except anthropic.AuthenticationError:
+        log.error("ANTHROPIC_API_KEY inválida ou vencida")
+        return JSONResponse({"texto": "O assistente está sem acesso à IA agora (chave inválida ou vencida).",
+                             "ferramentas": [], "erro": "chave"}, status_code=503)
+    except anthropic.APIStatusError as exc:
+        log.error("Claude respondeu %s: %s", exc.status_code, exc.message)
+        return JSONResponse({"texto": "A IA não respondeu agora. Tente de novo; a conferência pelo painel continua funcionando.",
+                             "ferramentas": [], "erro": "api"}, status_code=502)
+    except anthropic.APIConnectionError:
+        return JSONResponse({"texto": "Sem conexão com a IA agora. Tente de novo em instantes.",
+                             "ferramentas": [], "erro": "conexao"}, status_code=502)
+
 
 @app.get("/relatorio", dependencies=[Depends(exige_login)])
 def relatorio_json(desde: date | None = None, ate: date | None = None):

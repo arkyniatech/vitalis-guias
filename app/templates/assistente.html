@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block titulo %}Assistente · Vitalis{% endblock %}
+{% block topo %}<h1>Assistente</h1>
+<div class="sub">Cole a guia do jeito que a recepção escreveu. A resposta vem das regras dos convênios, pelo MCP <code>vitalis-guias</code>, seguindo a Skill <code>conferir-guia</code>.</div>{% endblock %}
+{% block corpo %}
+<style>
+  .chat-app { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:20px; align-items:start }
+  .conversa { background:var(--card); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--sombra); display:flex; flex-direction:column; min-height:62vh }
+  .mensagens { flex:1; padding:20px; display:flex; flex-direction:column; gap:14px; overflow-y:auto; max-height:64vh }
+  .msg-u, .msg-a { max-width:86%; padding:12px 15px; border-radius:16px; line-height:1.55; white-space:pre-wrap; word-wrap:break-word }
+  .msg-u { align-self:flex-end; background:var(--brand); color:#fff; border-bottom-right-radius:5px }
+  .msg-a { align-self:flex-start; background:#f4f7f6; border:1px solid var(--line-2); border-bottom-left-radius:5px }
+  .msg-a.erro { background:var(--bloq-bg); color:var(--bloq-ink); border-color:#fecaca }
+  .ferramentas { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px }
+  .ferr { font:600 11.5px var(--mono); background:#0b2723; color:#9ee6d8; border-radius:7px; padding:3px 8px; cursor:help }
+  .pensando { align-self:flex-start; color:var(--muted); font-size:13px; display:flex; align-items:center; gap:8px }
+  .pensando i { width:8px; height:8px; border-radius:50%; background:var(--brand-2); animation:pulsa 1s infinite ease-in-out }
+  .pensando i:nth-child(2) { animation-delay:.15s } .pensando i:nth-child(3) { animation-delay:.3s }
+  @keyframes pulsa { 0%,100% { opacity:.25; transform:scale(.8) } 50% { opacity:1; transform:scale(1) } }
+  .entrada { border-top:1px solid var(--line-2); padding:14px; display:flex; gap:10px; align-items:flex-end }
+  .entrada textarea { flex:1; min-height:52px; max-height:180px; resize:vertical }
+  .vazio-chat { margin:auto; text-align:center; color:var(--muted); max-width:420px; padding:30px 10px }
+  .vazio-chat b { color:var(--ink); display:block; font-size:16px; margin-bottom:6px }
+  .lado-chat .card { padding:16px }
+  .sugestao { display:block; width:100%; text-align:left; background:#f7faf9; border:1px solid var(--line); color:var(--ink-2); border-radius:10px; padding:9px 11px; margin-bottom:8px; font:500 13px "Plus Jakarta Sans", sans-serif; box-shadow:none; cursor:pointer }
+  .sugestao:hover { border-color:var(--brand-2); background:var(--brand-soft); color:var(--ink) }
+  .como ol { padding-left:18px; margin:8px 0 0; font-size:13px; color:var(--ink-2) } .como li { margin-bottom:6px }
+  @media (max-width:900px) { .chat-app { grid-template-columns:minmax(0,1fr) } .msg-u, .msg-a { max-width:100% } }
+</style>
+
+{% if not ligado %}<div class="alerta erro">O assistente está desligado: falta a variável <code>ANTHROPIC_API_KEY</code> no servidor. O resto do painel funciona normalmente.</div>{% endif %}
+
+<div class="chat-app">
+  <div class="conversa">
+    <div class="mensagens" id="mensagens">
+      <div class="vazio-chat" id="vazio">
+        <b>Pode colar a guia como veio</b>
+        Com vírgula, com barra, faltando campo. Eu monto a guia, confiro nas regras do convênio e digo se pode enviar, o motivo e o que corrigir.
+      </div>
+    </div>
+    <form class="entrada" id="form">
+      <textarea id="texto" placeholder="Ex.: guia 0140 norte, saude interior, fisio muscular, aut em branco, sessão 4 de 20, 62,00, obs: autorizado por telefone protocolo 990021" {{ 'disabled' if not ligado }}></textarea>
+      <button class="primario" id="enviar" {{ 'disabled' if not ligado }}>Enviar</button>
+    </form>
+  </div>
+
+  <div class="lado-chat">
+    <div class="card">
+      <div class="rotulo" style="margin-bottom:10px">Experimente</div>
+      <button class="sugestao" data-t="guia 0140 unid norte, paciente P-3140, saude interior cart 443211908, fisio muscular, aut em branco, sessao 4 de 20, Camila Torres CREFITO-3 176590-F, 62,00, atendido 21/09/2026 lancado 2026-09-22. obs: autorizado por telefone protocolo 990021 aguardando numero. posso enviar?">Guia com autorização por telefone</button>
+      <button class="sugestao" data-t="guia G-2609-0200 unidade sul, P-3200, vitalcard carteirinha 551234987, cid M54.5, fisio muscular 50000470, aut AUT771100 valida ate 2026-10-15, sessao 3 de 10, Bruno Castanho CREFITO-3 204411-F, 62.00, atendido e lancado 2026-09-22. ta ok?">Guia sem problema</button>
+      <button class="sugestao" data-t="o plano bem cobre consulta ortopédica?">O Plano Bem cobre consulta?</button>
+      <button class="sugestao" data-t="confere a G-2608-0039 pra mim">Conferir uma guia de agosto</button>
+      <button class="sugestao" data-t="como foi agosto? quanto dinheiro ficou em risco?">Resumo de agosto</button>
+    </div>
+    <div class="card como" style="margin-top:14px">
+      <div class="rotulo">Como funciona</div>
+      <ol>
+        <li>O sistema abre o <b>MCP vitalis-guias</b> e pega as ferramentas dele.</li>
+        <li>O Claude recebe a sua mensagem com as instruções da <b>Skill conferir-guia</b>.</li>
+        <li>Ele chama <code>verificar_guia</code> ou <code>consultar_regra</code>. Quem decide é a regra, não a IA.</li>
+        <li>As ferramentas usadas aparecem em cima de cada resposta.</li>
+      </ol>
+      <p class="msg" style="margin:8px 0 0">Nada daqui é gravado no painel. É só consulta.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const lista = document.getElementById('mensagens'), form = document.getElementById('form');
+  const campo = document.getElementById('texto'), botao = document.getElementById('enviar');
+  const historico = [];
+
+  const esc = (t) => t.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Só o que a Skill usa: **negrito**, *negrito* e quebras de linha. Nada de HTML vindo da IA.
+  const formatar = (t) => esc(t).replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,:;!?]|$)/g, '$1<b>$2</b>')
+    .replace(/^#{1,6}\s*/gm, '').replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+  function adicionar(classe, html) {
+    document.getElementById('vazio')?.remove();
+    const div = document.createElement('div');
+    div.className = classe; div.innerHTML = html;
+    lista.appendChild(div); lista.scrollTop = lista.scrollHeight;
+    return div;
+  }
+
+  async function enviar(texto) {
+    texto = texto.trim();
+    if (!texto || botao.disabled) return;
+    historico.push({ role: 'user', content: texto });
+    adicionar('msg-u', esc(texto));
+    campo.value = ''; botao.disabled = true;
+    const espera = adicionar('pensando', '<i></i><i></i><i></i> conferindo nas regras…');
+    try {
+      const r = await fetch('/assistente/mensagem', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                     body: JSON.stringify({ historico }) });
+      const d = await r.json().catch(() => ({ texto: 'Resposta inválida do servidor.', erro: 'json' }));
+      espera.remove();
+      const ferr = (d.ferramentas || []).map((f) =>
+        `<span class="ferr" title="${esc(JSON.stringify(f.entrada))}">MCP · ${esc(f.nome)}</span>`).join('');
+      const texto_resp = d.texto || d.detail || 'Sem resposta.';
+      adicionar('msg-a' + (d.erro || !r.ok ? ' erro' : ''), (ferr ? `<div class="ferramentas">${ferr}</div>` : '') + formatar(texto_resp));
+      if (r.ok && !d.erro) historico.push({ role: 'assistant', content: texto_resp });
+      else historico.pop();
+    } catch (e) {
+      espera.remove(); historico.pop();
+      adicionar('msg-a erro', 'Não consegui falar com o servidor. Confira a conexão e tente de novo.');
+    } finally {
+      botao.disabled = false; campo.focus();
+    }
+  }
+
+  form.addEventListener('submit', (e) => { e.preventDefault(); enviar(campo.value); });
+  campo.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(campo.value); } });
+  document.querySelectorAll('.sugestao').forEach((b) => b.addEventListener('click', () => enviar(b.dataset.t)));
+})();
+</script>
+{% endblock %}
