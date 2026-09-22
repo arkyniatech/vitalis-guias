@@ -62,6 +62,16 @@ def _limpar_historico(historico: list[dict]) -> list[dict]:
     return msgs
 
 
+def _parametros_do_modelo(modelo: str) -> dict:
+    """O Haiku 4.5 (o mais barato) não aceita effort nem o fallback do servidor, e não precisa pensar pra
+    montar uma guia e chamar a ferramenta. Nos modelos maiores: pensamento adaptativo, esforço médio e
+    fallback do servidor se o modelo recusar por política."""
+    if modelo.startswith("claude-haiku"):
+        return {}
+    return {"thinking": {"type": "adaptive"}, "output_config": {"effort": "medium"},
+            "betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
+
+
 async def responder(historico: list[dict], cliente: anthropic.AsyncAnthropic | None = None) -> dict:
     """Devolve {"texto": resposta, "ferramentas": [{"nome", "entrada"}...]}."""
     if not config.ANTHROPIC_API_KEY and cliente is None:
@@ -72,48 +82,53 @@ async def responder(historico: list[dict], cliente: anthropic.AsyncAnthropic | N
     usadas: list[dict] = []
 
     params = StdioServerParameters(command=sys.executable, args=[str(SERVIDOR_MCP)], cwd=str(config.RAIZ))
+    erro_api: anthropic.APIError | None = None
     async with stdio_client(params) as (leitura, escrita):
         async with ClientSession(leitura, escrita) as mcp:
             await mcp.initialize()
-            ferramentas = [{"name": t.name, "description": t.description or "", "input_schema": t.input_schema}
-                           for t in (await mcp.list_tools()).tools]
+            try:
+                return await _conversar(cliente, mcp, messages, usadas)
+            except anthropic.APIError as exc:
+                # guarda e relança fora do MCP: dentro dele o erro sai embrulhado num ExceptionGroup
+                erro_api = exc
+    raise erro_api
 
-            for _ in range(MAX_VOLTAS):
-                resposta = await cliente.beta.messages.create(
-                    model=config.ASSISTENTE_MODELO,
-                    max_tokens=16000,
-                    system=_instrucoes(),
-                    tools=ferramentas,
-                    messages=messages,
-                    thinking={"type": "adaptive"},
-                    output_config={"effort": "medium"},
-                    cache_control={"type": "ephemeral"},
-                    # se o modelo recusar por política, a API tenta de novo no modelo recomendado
-                    betas=["server-side-fallback-2026-07-01"],
-                    fallbacks="default",
-                )
-                if resposta.stop_reason == "refusal":
-                    return {"texto": "Não consegui responder essa. Tente reescrever a guia ou a pergunta.",
-                            "ferramentas": usadas}
-                if resposta.stop_reason != "tool_use":
-                    texto = "\n".join(b.text for b in resposta.content if b.type == "text").strip()
-                    return {"texto": texto or "(sem resposta)", "ferramentas": usadas}
 
-                messages.append({"role": "assistant", "content": resposta.content})
-                resultados = []
-                for bloco in resposta.content:
-                    if bloco.type != "tool_use":
-                        continue
-                    usadas.append({"nome": bloco.name, "entrada": bloco.input})
-                    try:
-                        res = await mcp.call_tool(bloco.name, bloco.input)
-                        resultados.append({"type": "tool_result", "tool_use_id": bloco.id,
-                                           "content": _texto_do_resultado(res), "is_error": bool(res.is_error)})
-                    except Exception as exc:  # uma ferramenta quebrar não derruba o chat
-                        log.exception("ferramenta %s falhou", bloco.name)
-                        resultados.append({"type": "tool_result", "tool_use_id": bloco.id,
-                                           "content": f"Erro ao chamar {bloco.name}: {exc}", "is_error": True})
-                messages.append({"role": "user", "content": resultados})
+async def _conversar(cliente, mcp: ClientSession, messages: list, usadas: list[dict]) -> dict:
+    ferramentas = [{"name": t.name, "description": t.description or "", "input_schema": t.input_schema}
+                   for t in (await mcp.list_tools()).tools]
+    for _ in range(MAX_VOLTAS):
+        resposta = await cliente.beta.messages.create(
+            model=config.ASSISTENTE_MODELO,
+            max_tokens=16000,
+            system=_instrucoes(),
+            tools=ferramentas,
+            messages=messages,
+            cache_control={"type": "ephemeral"},
+            **_parametros_do_modelo(config.ASSISTENTE_MODELO),
+        )
+        if resposta.stop_reason == "refusal":
+            return {"texto": "Não consegui responder essa. Tente reescrever a guia ou a pergunta.",
+                    "ferramentas": usadas}
+        if resposta.stop_reason != "tool_use":
+            texto = "\n".join(b.text for b in resposta.content if b.type == "text").strip()
+            return {"texto": texto or "(sem resposta)", "ferramentas": usadas}
+
+        messages.append({"role": "assistant", "content": resposta.content})
+        resultados = []
+        for bloco in resposta.content:
+            if bloco.type != "tool_use":
+                continue
+            usadas.append({"nome": bloco.name, "entrada": bloco.input})
+            try:
+                res = await mcp.call_tool(bloco.name, bloco.input)
+                resultados.append({"type": "tool_result", "tool_use_id": bloco.id,
+                                   "content": _texto_do_resultado(res), "is_error": bool(res.is_error)})
+            except Exception as exc:  # uma ferramenta quebrar não derruba o chat
+                log.exception("ferramenta %s falhou", bloco.name)
+                resultados.append({"type": "tool_result", "tool_use_id": bloco.id,
+                                   "content": f"Erro ao chamar {bloco.name}: {exc}", "is_error": True})
+        messages.append({"role": "user", "content": resultados})
 
     return {"texto": "A conferência deu muitas voltas e parei por segurança. Tente mandar a guia de novo.",
             "ferramentas": usadas}

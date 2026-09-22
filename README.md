@@ -215,7 +215,7 @@ A aba **Assistente** do painel ([`app/assistente.py`](app/assistente.py)) junta 
 3. quando o Claude pede `verificar_guia` ou `consultar_regra`, chama no MCP e devolve o resultado;
 4. mostra a resposta no formato da Skill (OK ou PENDENTE, motivo e o que corrigir), com as ferramentas usadas em cima.
 
-Quem avalia consegue ver a Skill e o MCP funcionando só abrindo o painel. Precisa de `ANTHROPIC_API_KEY` no servidor; sem ela, a aba avisa que está desligada e o resto do painel segue normal. Modelo: `ASSISTENTE_MODELO` (padrão `claude-opus-5`), com fallback do servidor ligado em caso de recusa.
+Quem avalia consegue ver a Skill e o MCP funcionando só abrindo o painel. Precisa de `ANTHROPIC_API_KEY` no servidor; sem ela, a aba avisa que está desligada e o resto do painel segue normal. Modelo: `ASSISTENTE_MODELO`, padrão `claude-haiku-4-5`, o mais barato. Dá conta de montar a guia e chamar a ferramenta, porque quem decide é a regra. Com `claude-sonnet-5` ou `claude-opus-5`, o app liga pensamento adaptativo e fallback do servidor em caso de recusa.
 
 ## Os números da terça
 

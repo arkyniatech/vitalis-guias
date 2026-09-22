@@ -26,4 +26,5 @@ OPENAI_MODEL = _env("OPENAI_MODEL", "gpt-4o-mini")
 REGRAS_PATH = RAIZ / _env("REGRAS_PATH", "dados/regras_convenio.json")
 # Assistente do painel (chat que usa o MCP e a Skill). Sem chave, a aba avisa que está desligada.
 ANTHROPIC_API_KEY = _env("ANTHROPIC_API_KEY")
-ASSISTENTE_MODELO = _env("ASSISTENTE_MODELO", "claude-opus-5")
+# Padrão: o mais barato (Haiku 4.5). Pra respostas mais caprichadas: claude-sonnet-5 ou claude-opus-5.
+ASSISTENTE_MODELO = _env("ASSISTENTE_MODELO", "claude-haiku-4-5")

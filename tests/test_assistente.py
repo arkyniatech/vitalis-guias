@@ -40,3 +40,21 @@ def test_assistente_chama_o_mcp_e_segue_a_skill():
 def test_historico_invalido():
     with pytest.raises(ValueError):
         assistente._limpar_historico([{"role": "assistant", "content": "oi"}])
+
+
+def test_erro_da_api_vira_mensagem_e_nao_500(monkeypatch):
+    import anthropic
+    import httpx
+    from fastapi.testclient import TestClient
+    from app import config
+    from app.main import app
+
+    class ClaudeFora(ClaudeFalso):
+        async def create(self, **kw):
+            raise anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
+
+    original = assistente.responder
+    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "x")
+    monkeypatch.setattr(assistente, "responder", lambda h: original(h, cliente=ClaudeFora()))
+    r = TestClient(app).post("/assistente/mensagem", json={"historico": [{"role": "user", "content": "oi"}]})
+    assert r.status_code == 502 and r.json()["erro"] == "conexao"
