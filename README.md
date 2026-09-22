@@ -238,7 +238,7 @@ Testes: `python -m pytest`. São 47, entre eles:
 
 1. **Supabase**: crie um projeto, copie a connection string (Settings → Database → URI, pooler em modo Session) e troque o prefixo pra `postgresql+psycopg://`. As tabelas são criadas na primeira subida.
 2. **EasyPanel**: App → Source: GitHub (este repositório) → Build: Dockerfile → porta 8000 → domínio.
-3. **Environment**: `DATABASE_URL`, `API_KEY`, `DASH_USER`, `DASH_PASS`, `OPENAI_API_KEY` (opcional). Nunca no repositório. Se o banco for dividido com outros sistemas, `DB_SCHEMA=vitalis` põe as tabelas num schema só delas.
+3. **Environment**: `DATABASE_URL`, `API_KEY`, `DASH_USER`, `DASH_PASS`, `OPENAI_API_KEY` (opcional), `DASH_NOME` e `DASH_PAPEL` (como o operador aparece no painel, opcionais). Nunca no repositório. Se o banco for dividido com outros sistemas, `DB_SCHEMA=vitalis` põe as tabelas num schema só delas.
 4. Deploy. `GET /saude` responde `{"app":"ok","banco":"ok","ia":"openai"}`.
 5. Carregue agosto: `python scripts/carregar_lote.py dados/guias_agosto.csv https://SEU-DOMINIO SUA_API_KEY`.
 6. **n8n**: na pasta "Clínica Vitalis", preencha o nó Config de cada workflow e ligue as duas credenciais.

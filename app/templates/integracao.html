@@ -1,11 +1,9 @@
 {% extends "base.html" %}
 {% block titulo %}Integração · Vitalis{% endblock %}
+{% block topo %}<h1>Integração</h1>
+<div class="sub">Como uma guia chega até aqui e o que sai daqui: o sistema manda no lançamento, a conferência volta na hora e a recepção é avisada antes do envio.</div>{% endblock %}
 {% block corpo %}
-<h2 style="margin-top:6px">Integração</h2>
-<p class="intro">Como uma guia chega até aqui e o que sai daqui. O sistema de gestão (ou o n8n) manda cada guia no lançamento,
-  a conferência volta na hora e a recepção recebe o alerta antes de enviar ao convênio.</p>
-
-<h2>O caminho de uma guia</h2>
+<h2 style="margin-top:0">O caminho de uma guia</h2>
 <div class="fluxo">
   <span class="passo">Recepção lança a guia</span><span class="seta">→</span>
   <span class="passo">n8n recebe no webhook</span><span class="seta">→</span>

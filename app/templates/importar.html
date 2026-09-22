@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block titulo %}Importar guias · Vitalis{% endblock %}
+{% block topo %}<h1>Importar guias</h1>
+<div class="sub">Cada guia é conferida na hora em que entra, antes de ir pro convênio. Mesmo número de guia atualiza, não duplica.</div>{% endblock %}
 {% block corpo %}
 {% set f = guia_form or {} %}
 {% set nome_status = {"bloqueada": "Não enviar", "pendente": "Aguardando", "corrigir": "Corrigir antes de enviar", "atencao": "Pode enviar, com atenção", "ok": "Pode enviar"} %}
-<h2 style="margin-top:6px">Importar guias</h2>
-<p class="intro">Cada guia é conferida na hora em que entra, antes de ir pro convênio. As que já estavam no painel com o mesmo número são atualizadas, não duplicam.</p>
 
 {% if erro %}<div class="alerta erro">{{ erro }}</div>{% endif %}
 
@@ -49,6 +49,7 @@
   <form method="post" action="/importar/csv" enctype="multipart/form-data">
     <label class="soltar" id="soltar">
       <input type="file" name="arquivo" accept=".csv,text/csv" required id="arquivo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>
       <b id="nome-arquivo">Clique ou arraste o CSV aqui</b>
       <span class="msg">O mesmo export do sistema: cabeçalho com id_guia, convenio, numero_autorizacao... Vírgula ou ponto e vírgula, UTF-8 ou Excel.</span>
     </label>

@@ -1,72 +1,152 @@
 {% extends "base.html" %}
+{% block topo %}
+<h1>{{ agora_br().saudacao }}, {{ operador(request).primeiro_nome }}</h1>
+<div class="sub">{% if rel.verificadas %}{{ rel.verificadas }} guias conferidas{% if rel.periodo.primeira_conferencia %}, lançadas de {{ rel.periodo.primeira_conferencia[8:10] }}/{{ rel.periodo.primeira_conferencia[5:7] }} a {{ rel.periodo.ultima_conferencia[8:10] }}/{{ rel.periodo.ultima_conferencia[5:7] }}{% endif %}. Toda guia é conferida no lançamento, antes de ir pro convênio.{% else %}Nenhuma guia no período.{% endif %}</div>
+{% endblock %}
 {% block corpo %}
-<form class="filtro" method="get">
-  <span class="msg">Guias lançadas de</span>
-  <input type="date" name="desde" value="{{ rel.periodo.desde or '' }}">
-  <span class="msg">até</span>
-  <input type="date" name="ate" value="{{ rel.periodo.ate or '' }}">
-  <button>Filtrar</button>
-  {% if rel.periodo.desde or rel.periodo.ate %}<a class="msg" href="/">limpar</a>{% endif %}
-  <span class="msg">Conferência feita no dia do lançamento, antes do envio. Gerado em {{ rel.gerado_em }}.</span>
-</form>
+<style>
+  .periodo { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between }
+  .atalhos { display:inline-flex; background:var(--card); border:1px solid var(--line); border-radius:11px; padding:3px; gap:2px }
+  .atalhos a { padding:6px 12px; border-radius:8px; text-decoration:none; color:var(--ink-2); font-weight:600; font-size:13px }
+  .atalhos a.ativo { background:var(--brand); color:#fff }
+  .periodo form input { padding:6px 10px } .periodo form button { padding:7px 12px }
+  .destaque { display:grid; grid-template-columns:1.25fr 2fr; gap:14px; margin-top:18px }
+  .risco-card { background:radial-gradient(120% 140% at 100% 0%, #115e56 0%, #0b2723 55%); color:#e6f4f1; border-radius:var(--r); padding:22px; position:relative; overflow:hidden; box-shadow:0 18px 40px -22px rgba(11,39,35,.8) }
+  .risco-card small { color:#9cc8c0; font-weight:600; font-size:12.5px; letter-spacing:.02em }
+  .risco-card .valor { font-size:38px; font-weight:800; letter-spacing:-.03em; color:#fff; margin:6px 0 2px; line-height:1.1 }
+  .risco-card .de { color:#9cc8c0 }
+  .divide { display:flex; height:9px; border-radius:99px; overflow:hidden; background:rgba(255,255,255,.1); margin:18px 0 10px }
+  .divide i { display:block; height:100% }
+  .legenda { display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:#cfe3df }
+  .legenda span { display:flex; align-items:center; gap:6px } .legenda i { width:9px; height:9px; border-radius:3px }
+  .legenda b { color:#fff }
+  .kpis.mini { grid-template-columns:1fr 1fr }
+  @media (max-width:520px) { .kpis.mini { grid-template-columns:1fr } }
+  .kpi .rodape { font-size:12.5px; color:var(--muted) }
+  .status-barra { margin-top:14px; padding:16px 18px }
+  .status-barra .linha { display:flex; height:12px; border-radius:99px; overflow:hidden; gap:2px; margin:10px 0 12px }
+  .status-barra .linha i { display:block; height:100% }
+  .status-barra .itens { display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:var(--ink-2) }
+  .status-barra .itens span { display:flex; align-items:center; gap:7px } .status-barra .itens i { width:10px; height:10px; border-radius:3px }
+  .tipos { padding:6px 0 }
+  .tipos .item { display:grid; grid-template-columns:1fr auto; gap:4px 12px; padding:11px 18px; border-bottom:1px solid var(--line-2) }
+  .tipos .item:last-child { border-bottom:0 }
+  .tipos .item .nome { font-weight:600 } .tipos .item .qtd { text-align:right; font-variant-numeric:tabular-nums }
+  .tipos .item .barra { grid-column:1 / -1 }
+  .mini-tabela td, .mini-tabela th { padding:10px 14px }
+  .rolagem.curta table { min-width:0 }
+  @media (max-width:520px) { .mini-tabela td, .mini-tabela th { padding:9px 8px } .mini-tabela th.num { white-space:normal } }
+  .tabela-acao td { vertical-align:top } .tabela-acao .prob + .prob { margin-top:8px }
+  .tabela-acao .prob b { font-weight:600 }
+  .clicavel { cursor:pointer }
+  @media (max-width:900px) { .destaque { grid-template-columns:1fr } }
+</style>
 
-<h2>Os números da terça</h2>
-<div class="kpis">
-  <div class="kpi"><small>Guias verificadas</small><b>{{ rel.verificadas }}</b><span class="msg">{% if rel.periodo.primeira_conferencia %}lançadas de {{ rel.periodo.primeira_conferencia[8:10] }}/{{ rel.periodo.primeira_conferencia[5:7] }} a {{ rel.periodo.ultima_conferencia[8:10] }}/{{ rel.periodo.ultima_conferencia[5:7] }}{% endif %}</span></div>
-  <div class="kpi"><small>Com problema</small><b>{{ rel.com_problema }}</b><span class="msg">{{ ('%.1f' % rel.pct_com_problema).replace('.', ',') }}% do total</span></div>
-  <div class="kpi risco"><small>Dinheiro em risco</small><b>{{ rel.valor_em_risco|brl }}</b><span class="msg">de {{ rel.valor_total|brl }} lançados</span></div>
-  <div class="kpi"><small>Bloqueadas</small><b>{{ rel.por_status.get('bloqueada', 0) }}</b><span class="msg">{{ rel.valor_em_risco_bloqueadas|brl }}</span></div>
-  <div class="kpi"><small>Corrigir / pendente</small><b>{{ rel.por_status.get('corrigir', 0) + rel.por_status.get('pendente', 0) }}</b><span class="msg">{{ rel.valor_em_risco_corrigivel|brl }} recuperável</span></div>
-  <div class="kpi"><small>OK</small><b>{{ rel.por_status.get('ok', 0) }}</b><span class="msg">{{ rel.por_status.get('atencao', 0) }} só com atenção</span></div>
+{% set total = rel.verificadas or 1 %}
+{% set cores = {"bloqueada": "var(--bloq)", "pendente": "var(--pend)", "corrigir": "var(--corr)", "atencao": "var(--aten)", "ok": "var(--ok)"} %}
+{% set nomes = {"bloqueada": "Bloqueadas", "pendente": "Pendentes", "corrigir": "Corrigir", "atencao": "Atenção", "ok": "OK"} %}
+
+<div class="periodo">
+  <div class="atalhos">
+    {% for nome, d in atalhos %}
+      {% set ativo = (d is none and not rel.periodo.desde and not rel.periodo.ate) or (d is not none and rel.periodo.desde == d.isoformat() and not rel.periodo.ate) %}
+      <a href="{{ '/?desde=' ~ d.isoformat() if d else '/' }}" class="{{ 'ativo' if ativo }}">{{ nome }}</a>
+    {% endfor %}
+  </div>
+  <form class="filtro" method="get">
+    <span class="msg">Lançadas de</span>
+    <input type="date" name="desde" value="{{ rel.periodo.desde or '' }}">
+    <span class="msg">até</span>
+    <input type="date" name="ate" value="{{ rel.periodo.ate or '' }}">
+    <button>Filtrar</button>
+  </form>
 </div>
+
+<div class="destaque">
+  <div class="risco-card">
+    <small>DINHEIRO EM RISCO</small>
+    <div class="valor">{{ rel.valor_em_risco|brl }}</div>
+    <div class="de">de {{ rel.valor_total|brl }} lançados{% if rel.valor_total %} · {{ ('%.0f' % (100 * rel.valor_em_risco / rel.valor_total)) }}%{% endif %}</div>
+    {% set rt = rel.valor_em_risco or 1 %}
+    <div class="divide">
+      <i style="width:{{ 100 * rel.valor_em_risco_bloqueadas / rt }}%; background:#f87171"></i>
+      <i style="width:{{ 100 * rel.valor_em_risco_corrigivel / rt }}%; background:#fbbf24"></i>
+    </div>
+    <div class="legenda">
+      <span><i style="background:#f87171"></i>Travado <b>{{ rel.valor_em_risco_bloqueadas|brl }}</b></span>
+      <span><i style="background:#fbbf24"></i>Recuperável <b>{{ rel.valor_em_risco_corrigivel|brl }}</b></span>
+    </div>
+  </div>
+  <div class="kpis mini">
+    <div class="kpi"><small><i style="background:var(--brand)"></i>Guias verificadas</small><b>{{ rel.verificadas }}</b><span class="rodape">{{ rel.por_status.get('ok', 0) + rel.por_status.get('atencao', 0) }} podem ir pro convênio</span></div>
+    <div class="kpi"><small><i style="background:var(--bloq)"></i>Com problema</small><b>{{ rel.com_problema }}</b><span class="rodape">{{ ('%.1f' % rel.pct_com_problema).replace('.', ',') }}% do total</span></div>
+    <div class="kpi"><small><i style="background:var(--bloq)"></i>Bloqueadas</small><b>{{ rel.por_status.get('bloqueada', 0) }}</b><span class="rodape">não podem ir assim</span></div>
+    <div class="kpi"><small><i style="background:var(--corr)"></i>Corrigir / pendente</small><b>{{ rel.por_status.get('corrigir', 0) + rel.por_status.get('pendente', 0) }}</b><span class="rodape">dá pra salvar</span></div>
+  </div>
+</div>
+
+{% if rel.verificadas %}
+<div class="painel status-barra">
+  <div class="rotulo">Como as guias saíram da conferência</div>
+  <div class="linha">
+    {% for st in ["bloqueada", "pendente", "corrigir", "atencao", "ok"] %}{% if rel.por_status.get(st) %}
+    <i style="width:{{ 100 * rel.por_status[st] / total }}%; background:{{ cores[st] }}" title="{{ nomes[st] }}: {{ rel.por_status[st] }}"></i>{% endif %}{% endfor %}
+  </div>
+  <div class="itens">
+    {% for st in ["bloqueada", "pendente", "corrigir", "atencao", "ok"] %}
+    <span><i style="background:{{ cores[st] }}"></i>{{ nomes[st] }} <b>{{ rel.por_status.get(st, 0) }}</b></span>{% endfor %}
+  </div>
+</div>
+{% endif %}
 
 <div class="grid2">
   <div>
-    <h2>De que tipo</h2>
+    <h2>De que tipo {% if rel.por_tipo %}<span class="conta">{{ rel.por_tipo|length }} tipos</span>{% endif %}</h2>
     {% if rel.por_tipo %}
-    <table>
-      <tr><th>Problema</th><th class="num">Guias</th><th class="num">Em risco</th><th></th></tr>
-      {% set maior = rel.por_tipo[0].guias if rel.por_tipo else 1 %}
+    <div class="painel tipos">
       {% for t in rel.por_tipo %}
-      <tr><td>{{ t.rotulo }}</td><td class="num">{{ t.guias }}</td><td class="num">{{ t.valor_em_risco|brl }}</td>
-          <td><div class="barra"><i style="width:{{ (100 * t.guias / (rel.verificadas or 1))|round }}%"></i></div></td></tr>
+      <div class="item">
+        <span class="nome">{{ t.rotulo }}</span>
+        <span class="qtd"><b>{{ t.guias }}</b> <span class="msg">guia{{ 's' if t.guias != 1 }}</span>{% if t.valor_em_risco %} · <span style="color:var(--bloq-ink); font-weight:600">{{ t.valor_em_risco|brl }}</span>{% endif %}</span>
+        <div class="barra"><i style="width:{{ (100 * t.guias / total)|round }}%{% if not t.valor_em_risco %}; background:#c4b5fd{% endif %}"></i></div>
+      </div>
       {% endfor %}
-    </table>
+    </div>
     {% else %}<div class="vazio">Nenhum problema no período.</div>{% endif %}
   </div>
   <div>
     <h2>Por unidade</h2>
-    <table>
+    <div class="rolagem curta"><table class="mini-tabela">
       <tr><th>Unidade</th><th class="num">Guias</th><th class="num">Com problema</th><th class="num">Em risco</th></tr>
       {% for u, d in rel.por_unidade.items() %}
-      <tr><td>{{ u }}</td><td class="num">{{ d.guias }}</td><td class="num">{{ d.com_problema }}</td><td class="num">{{ d.valor_em_risco|brl }}</td></tr>
+      <tr><td><b>{{ u }}</b></td><td class="num">{{ d.guias }}</td><td class="num">{{ d.com_problema }}</td><td class="num">{{ d.valor_em_risco|brl }}</td></tr>
       {% endfor %}
-    </table>
+    </table></div>
     <h2>Por convênio</h2>
-    <table>
+    <div class="rolagem curta"><table class="mini-tabela">
       <tr><th>Convênio</th><th class="num">Guias</th><th class="num">Com problema</th><th class="num">Em risco</th></tr>
       {% for c, d in rel.por_convenio.items() %}
-      <tr><td>{{ c }}</td><td class="num">{{ d.guias }}</td><td class="num">{{ d.com_problema }}</td><td class="num">{{ d.valor_em_risco|brl }}</td></tr>
+      <tr><td><b>{{ c }}</b></td><td class="num">{{ d.guias }}</td><td class="num">{{ d.com_problema }}</td><td class="num">{{ d.valor_em_risco|brl }}</td></tr>
       {% endfor %}
-    </table>
+    </table></div>
   </div>
 </div>
 
-<h2>O que fazer, na ordem ({{ rel.pendentes|length }} guias)</h2>
+<h2>O que fazer, na ordem <span class="conta">{{ rel.pendentes|length }} guias</span></h2>
 {% if rel.pendentes %}
-<table>
-  <tr><th>Guia</th><th>Status</th><th>Unid.</th><th>Convênio</th><th>Paciente</th><th>Atend.</th><th class="num">Valor</th><th>Problema e ação</th><th class="num">Enviar até</th></tr>
+<div class="rolagem"><table class="tabela-acao">
+  <tr><th>Guia</th><th>Status</th><th>Unidade · convênio</th><th>Atend.</th><th class="num">Valor</th><th>Problema e o que fazer</th><th class="num">Enviar até</th></tr>
   {% for g in rel.pendentes %}
-  <tr>
-    <td><a class="id" href="/guias/{{ g.id_guia }}">{{ g.id_guia }}</a></td>
+  <tr class="clicavel" onclick="if(!event.target.closest('a'))location='/guias/{{ g.id_guia }}'">
+    <td><a class="id" href="/guias/{{ g.id_guia }}">{{ g.id_guia }}</a><div class="msg">{{ g.paciente }}</div></td>
     <td><span class="tag {{ g.status }}">{{ g.status }}</span></td>
-    <td>{{ g.unidade }}</td><td>{{ g.convenio }}</td><td>{{ g.paciente }}</td>
+    <td><b>{{ g.unidade }}</b><div class="msg">{{ g.convenio }}</div></td>
     <td>{{ g.data_atendimento.strftime('%d/%m') if g.data_atendimento else '?' }}</td>
     <td class="num">{{ g.valor|brl }}</td>
-    <td>{% for a in g.achados %}<div><b>{{ rotulo(a.codigo) }}</b> <span class="msg">{{ a.mensagem }}</span><br><span class="acao">→ {{ a.acao }}</span></div>{% endfor %}</td>
-    <td class="num">{% if g.prazo_envio_vence_em %}{{ g.prazo_envio_vence_em.strftime('%d/%m') }}<br><span class="msg">{% if g.dias_para_enviar < 0 %}vencido no lançamento{% else %}{{ g.dias_para_enviar }} d no lançamento{% endif %}</span>{% endif %}</td>
+    <td>{% for a in g.achados %}<div class="prob"><b>{{ rotulo(a.codigo) }}</b> <span class="msg">{{ a.mensagem }}</span><br><span class="acao">→ {{ a.acao }}</span></div>{% endfor %}</td>
+    <td class="num">{% if g.prazo_envio_vence_em %}<b>{{ g.prazo_envio_vence_em.strftime('%d/%m') }}</b><br><span class="msg">{% if g.dias_para_enviar < 0 %}vencido no lançamento{% else %}{{ g.dias_para_enviar }} d no lançamento{% endif %}</span>{% endif %}</td>
   </tr>
   {% endfor %}
-</table>
+</table></div>
 {% else %}<div class="vazio">Nada pendente. Bom sinal.</div>{% endif %}
 {% endblock %}

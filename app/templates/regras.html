@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% block titulo %}Regras dos convênios · Vitalis{% endblock %}
+{% block topo %}<h1>Regras dos convênios <span class="chip" style="font-size:12px; vertical-align:middle">versão {{ r.versao }}</span></h1>
+<div class="sub">O que o sistema confere em cada guia, convênio por convênio.</div>{% endblock %}
 {% block corpo %}
 {% set nome_campo = {"numero_autorizacao": "nº da autorização", "autorizacao_validade": "validade da autorização",
   "profissional_registro": "registro do profissional", "carteirinha": "carteirinha", "cid": "CID"} %}
-<h2 style="margin-top:6px">Regras dos convênios <span class="chip">versão {{ r.versao }}</span></h2>
-<p class="intro">É isso que o sistema confere em cada guia. As regras vêm do arquivo <code>dados/regras_convenio.json</code>:
+<p class="intro" style="margin-top:0">As regras vêm do arquivo <code>dados/regras_convenio.json</code>:
   se um convênio mudar prazo, limite ou cobertura, troca-se o arquivo e o código continua igual.
   <a class="bruto" href="/regras">ver em JSON</a></p>
 

@@ -13,7 +13,8 @@ import logging
 import re
 import secrets
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
@@ -54,6 +55,29 @@ def _mensagem_html(texto: str) -> Markup:
 
 templates.env.filters["mensagem"] = _mensagem_html
 
+FUSO = ZoneInfo("America/Sao_Paulo")
+DIAS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
+MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro",
+         "novembro", "dezembro"]
+
+
+def _agora_br() -> dict:
+    agora = datetime.now(FUSO)
+    saudacao = "Bom dia" if agora.hour < 12 else "Boa tarde" if agora.hour < 18 else "Boa noite"
+    return {"saudacao": saudacao, "hoje_extenso": f"{DIAS[agora.weekday()]}, {agora.day} de {MESES[agora.month - 1]}"}
+
+
+templates.env.globals["agora_br"] = _agora_br
+
+
+def _operador(usuario: str | None = None) -> dict:
+    nome = config.DASH_NOME or (usuario or "Equipe Vitalis").replace(".", " ").title()
+    iniciais = "".join(p[0] for p in nome.split()[:2]).upper()
+    return {"nome": nome, "primeiro_nome": nome.split()[0], "papel": config.DASH_PAPEL, "iniciais": iniciais}
+
+
+templates.env.globals["operador"] = lambda request: getattr(request.state, "operador", None) or _operador()
+
 
 # --------------------------------------------------------------------------- segurança
 
@@ -66,6 +90,7 @@ def exige_api_key(request: Request) -> None:
 
 
 def exige_login(request: Request, cred: HTTPBasicCredentials | None = Depends(basic)) -> None:
+    request.state.operador = _operador(cred.username if cred else None)
     if not config.DASH_USER:
         return
     # aceita a API key também, pro n8n bater no /relatorio sem senha de gente
@@ -228,7 +253,10 @@ def relatorio_json(desde: date | None = None, ate: date | None = None):
 @app.get("/", response_class=HTMLResponse, dependencies=[Depends(exige_login)])
 def dashboard(request: Request, desde: date | None = None, ate: date | None = None):
     rel = relatorio.gerar(desde, ate)
-    return templates.TemplateResponse(request, "dashboard.html", {"rel": rel, "desde": desde, "ate": ate, "aba": "painel"})
+    hoje = datetime.now(FUSO).date()
+    atalhos = [("Tudo", None), ("Últimos 7 dias", hoje - timedelta(days=6)), ("Este mês", hoje.replace(day=1))]
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "rel": rel, "desde": desde, "ate": ate, "aba": "painel", "atalhos": atalhos})
 
 
 @app.get("/guias/{id_guia}", response_class=HTMLResponse, dependencies=[Depends(exige_login)])
