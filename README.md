@@ -108,6 +108,8 @@ Ordem: cache no banco (o mesmo texto não vai pra IA duas vezes) → OpenAI (`gp
 
 ## Como uma guia nova entra
 
+Pela tela: botão **+ Importar guias** no painel. Envia o CSV exportado do sistema ou preenche uma guia só, e a conferência aparece na hora (OK ou PENDENTE, motivo e o que corrigir). Pelo sistema da clínica ou pelo n8n:
+
 ```bash
 curl -X POST https://SEU-DOMINIO/guias \
   -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
@@ -222,7 +224,7 @@ python scripts/carregar_lote.py dados/guias_agosto.csv http://localhost:8000 SUA
 
 Ou `docker compose up --build`.
 
-Testes: `python -m pytest`. São 46, entre eles:
+Testes: `python -m pytest`. São 47, entre eles:
 
 - o gabarito das 80 guias (`tests/gabarito_agosto.json`): se alguém mexer numa regra e uma guia mudar de lugar, o teste diz qual;
 - as 80 guias entrando uma por uma pelo `POST /guias`, sem parâmetro nenhum, batendo com o lote;
@@ -250,7 +252,7 @@ Testes: `python -m pytest`. São 46, entre eles:
 
 ## Decisões que eu defenderia na entrevista
 
-- **Python + FastAPI pra regra, n8n pra orquestrar.** Regra em Code node de n8n é difícil de testar e de explicar. Aqui cada regra é uma função com nome e 46 testes rodam em 3 segundos. O n8n fica onde ele é bom: receber a guia, agendar e entregar a mensagem.
+- **Python + FastAPI pra regra, n8n pra orquestrar.** Regra em Code node de n8n é difícil de testar e de explicar. Aqui cada regra é uma função com nome e 47 testes rodam em 3 segundos. O n8n fica onde ele é bom: receber a guia, agendar e entregar a mensagem.
 - **Regras no JSON, não no código.** `regras_convenio.json` é o que a Carla mandou. Mudou o limite do Plano Bem, troca o arquivo. O que é regra da clínica e não do convênio (CREFITO pra fisio, CRM pra médico) está num dicionário só, com comentário dizendo isso.
 - **IA num lugar só, com fallback.** Ver acima.
 - **Conferência no lançamento, sempre.** A mesma guia dá o mesmo resultado entrando por lote, CSV ou API. É o que o esclarecimento 2 pede e o que faz sentido na operação: a guia é conferida quando nasce.
@@ -281,7 +283,7 @@ app/
     observacao.py         IA + fallback + cache
     regras.py             uma função por regra
     motor.py              orquestra, decide status, reconfere duplicata fora de ordem
-  templates/              dashboard.html, guia.html, regras.html, integracao.html
+  templates/              dashboard.html, guia.html, regras.html, integracao.html, importar.html
 mcp_vitalis/server.py     MCP: consultar_regra, verificar_guia, buscar_guia, listar_convenios, relatorio_da_semana
 skills/conferir-guia/     Skill pra recepção e faturamento (usa o MCP)
 dados/                    regras_convenio.json, guias_agosto.csv

@@ -127,3 +127,17 @@ def test_paginas_de_regras_e_integracao():
     assert all(n in regras for n in ("Vitalcard", "Saúde Interior", "Plano Bem", "5 dias úteis"))
     integ = c.get("/integracao").text
     assert "<b>Guias de convênio" in integ and "/guias/lote" in integ
+
+
+def test_importar_pela_tela():
+    c = TestClient(app)
+    assert c.get("/importar").status_code == 200
+    csv_ok = (RAIZ / "dados" / "guias_agosto.csv").read_bytes()
+    r = c.post("/importar/csv", files={"arquivo": ("agosto.csv", csv_ok, "text/csv")})
+    assert r.status_code == 200 and "80 guias conferidas" in r.text
+    assert c.get("/relatorio").json()["com_problema"] == 39
+    guia = dict(GUIA, id_guia="TELA-1", procedimento_descricao="")
+    r = c.post("/importar/guia", data=guia)
+    assert "PENDENTE" in r.text and "CID" in r.text
+    # POST vindo de outro site é recusado
+    assert c.post("/importar/guia", data=guia, headers={"origin": "https://outro.site"}).status_code == 403

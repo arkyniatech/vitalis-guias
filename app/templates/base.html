@@ -67,13 +67,32 @@
   .fluxo { display:flex; flex-wrap:wrap; align-items:center; gap:8px }
   .fluxo span.passo { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:14px }
   .fluxo span.seta { color:var(--muted) }
+  header a.btn-importar { margin-left:auto; background:#2563eb; color:#fff; padding:6px 12px; border-radius:8px; border:0; font-weight:600 }
+  header a.btn-importar:hover, header a.btn-importar.ativo { background:#1d4ed8 }
+  .campos { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px 14px }
+  .campos label { display:flex; flex-direction:column; gap:4px; font-size:13px; color:#374151 }
+  .campos label.largo { grid-column:1 / -1 }
+  .campos input, .campos select, .campos textarea { padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; font:inherit; background:#fff }
+  .campos textarea { min-height:60px; resize:vertical }
+  .soltar { display:block; border:2px dashed #cbd5e1; border-radius:12px; padding:26px; text-align:center; background:#f8fafc; cursor:pointer }
+  .soltar:hover, .soltar.sobre { border-color:#2563eb; background:#eff6ff }
+  .soltar input { display:none } .soltar b { display:block; font-size:16px; margin-bottom:4px }
+  .acoes { display:flex; gap:10px; align-items:center; margin-top:14px; flex-wrap:wrap }
+  button.primario { background:#2563eb; padding:9px 16px; font-weight:600 } button.primario:hover { background:#1d4ed8 }
+  .alerta { border-radius:10px; padding:12px 14px; margin:14px 0 } .alerta.erro { background:#fef2f2; color:#991b1b; border:1px solid #fecaca }
+  .veredito { border-radius:12px; padding:16px; margin:14px 0; border:1px solid var(--line); background:var(--card) }
+  .veredito h3 { margin:0 0 6px; font-size:20px } .veredito.nao { border-left:6px solid var(--bloq) } .veredito.sim { border-left:6px solid var(--ok) }
+  .veredito ol { margin:8px 0 0; padding-left:20px } .veredito li { margin-bottom:6px }
+  details.bloco { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-top:16px }
+  details.bloco summary { cursor:pointer; font-weight:600; font-size:16px }
 </style>
 </head>
 <body>
 <header><b>Vitalis · conferência de guias</b>
   <a href="/" class="{{ 'ativo' if aba == 'painel' }}">Painel</a>
   <a href="/convenios" class="{{ 'ativo' if aba == 'regras' }}">Regras dos convênios</a>
-  <a href="/integracao" class="{{ 'ativo' if aba == 'integracao' }}">Integração</a></header>
+  <a href="/integracao" class="{{ 'ativo' if aba == 'integracao' }}">Integração</a>
+  <a href="/importar" class="btn-importar {{ 'ativo' if aba == 'importar' }}">+ Importar guias</a></header>
 <main>{% block corpo %}{% endblock %}</main>
 </body>
 </html>

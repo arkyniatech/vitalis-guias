@@ -3,6 +3,7 @@
   POST /guias/lote   CSV exportado do sistema (o que a Carla tem hoje).
   GET  /             dashboard de terça.  GET /relatorio  mesmos números em JSON pro n8n.
   GET  /convenios    regras dos convênios pra gente ler.  GET /integracao  como chamar a API.
+  GET  /importar     botão do painel: CSV ou uma guia pela tela, com login.
 """
 from __future__ import annotations
 
@@ -127,7 +128,14 @@ async def receber_guia(request: Request, data_referencia: str | None = Query(Non
 @app.post("/guias/lote", dependencies=[Depends(exige_api_key)])
 async def receber_lote(arquivo: UploadFile = File(...), data_referencia: str | None = Query(None)):
     """CSV com o mesmo cabeçalho do export do sistema. Linha ruim não derruba o lote."""
-    conteudo = await arquivo.read()
+    linhas = _ler_csv(await arquivo.read())
+    r = motor.registrar_lote(linhas, _data_ref(data_referencia), origem="lote")
+    return {"verificadas": r["verificadas"], "com_erro_de_leitura": r["com_erro_de_leitura"], "erros": r["erros"],
+            "resumo": relatorio.gerar()["por_status"]}
+
+
+def _ler_csv(conteudo: bytes) -> list[dict]:
+    """Aceita UTF-8 ou Latin-1 (Excel), vírgula ou ponto e vírgula."""
     for enc in ("utf-8-sig", "latin-1"):
         try:
             texto = conteudo.decode(enc)
@@ -141,9 +149,73 @@ async def receber_lote(arquivo: UploadFile = File(...), data_referencia: str | N
     linhas = list(csv.DictReader(io.StringIO(texto), delimiter=delim))
     if not linhas or "id_guia" not in linhas[0]:
         raise HTTPException(422, "CSV precisa ter cabeçalho com id_guia (veja dados/guias_agosto.csv)")
-    r = motor.registrar_lote(linhas, _data_ref(data_referencia), origem="lote")
-    return {"verificadas": r["verificadas"], "com_erro_de_leitura": r["com_erro_de_leitura"], "erros": r["erros"],
-            "resumo": relatorio.gerar()["por_status"]}
+    return linhas
+
+
+# --------------------------------------------------------------------------- importar pela tela
+
+def _mesma_origem(request: Request) -> None:
+    """Formulário com login no navegador: só aceita POST vindo do próprio painel (evita CSRF)."""
+    origem = request.headers.get("origin") or request.headers.get("referer") or ""
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+    if origem and host and host not in origem:
+        raise HTTPException(403, "envio de fora do painel")
+
+
+def _tela_importar(request: Request, **extra):
+    r = carregar()
+    return templates.TemplateResponse(request, "importar.html", {
+        "aba": "importar", "convenios": list(r.convenios), "procedimentos": r.procedimentos,
+        "hoje": date.today().isoformat(), **extra})
+
+
+def _linha_resultado(res: dict) -> dict:
+    g = res["guia"]
+    return {"id_guia": g["id_guia"], "status": res["status"], "unidade": g["unidade"], "convenio": g["convenio"],
+            "valor": g["valor"], "valor_em_risco": res["valor_em_risco"], "achados": res["achados"]}
+
+
+@app.get("/importar", response_class=HTMLResponse, dependencies=[Depends(exige_login)])
+def importar(request: Request):
+    return _tela_importar(request)
+
+
+@app.post("/importar/csv", response_class=HTMLResponse, dependencies=[Depends(exige_login)])
+async def importar_csv(request: Request, arquivo: UploadFile = File(...)):
+    _mesma_origem(request)
+    try:
+        linhas = _ler_csv(await arquivo.read())
+    except HTTPException as exc:
+        return _tela_importar(request, erro=exc.detail)
+    r = motor.registrar_lote(linhas, None, origem="lote")
+    resultados = sorted((_linha_resultado(x) for x in r["resultados"]),
+                        key=lambda x: (relatorio.ORDEM.get(x["status"], 9), -(x["valor"] or 0)))
+    por_status: dict[str, int] = {}
+    for x in resultados:
+        por_status[x["status"]] = por_status.get(x["status"], 0) + 1
+    return _tela_importar(request, lote={
+        "arquivo": arquivo.filename, "verificadas": r["verificadas"], "erros": r["erros"], "por_status": por_status,
+        "valor_em_risco": round(sum(x["valor_em_risco"] for x in resultados), 2),
+        "com_problema": [x for x in resultados if x["status"] in relatorio.COM_PROBLEMA],
+        "atencao": [x for x in resultados if x["status"] == "atencao"]})
+
+
+@app.post("/importar/guia", response_class=HTMLResponse, dependencies=[Depends(exige_login)])
+async def importar_guia(request: Request):
+    _mesma_origem(request)
+    form = await request.form()
+    bruto = {k: str(v).strip() for k, v in form.items()}
+    if not bruto.get("id_guia"):
+        return _tela_importar(request, erro="Preencha o número da guia.", guia_form=bruto)
+    proc = carregar().procedimentos.get(bruto.get("procedimento_codigo", ""))
+    if proc and not bruto.get("procedimento_descricao"):
+        bruto["procedimento_descricao"] = proc["descricao"]
+    try:
+        res = motor.registrar(bruto, None, origem="painel")
+    except Exception as exc:
+        log.exception("falha ao verificar guia %s pela tela", bruto.get("id_guia"))
+        return _tela_importar(request, erro=f"Não consegui verificar a guia: {exc}", guia_form=bruto)
+    return _tela_importar(request, guia=_linha_resultado(res), guia_form=bruto)
 
 
 # --------------------------------------------------------------------------- leitura

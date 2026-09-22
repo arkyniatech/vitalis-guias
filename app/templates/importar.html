@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block titulo %}Importar guias · Vitalis{% endblock %}
+{% block corpo %}
+{% set f = guia_form or {} %}
+{% set nome_status = {"bloqueada": "Não enviar", "pendente": "Aguardando", "corrigir": "Corrigir antes de enviar", "atencao": "Pode enviar, com atenção", "ok": "Pode enviar"} %}
+<h2 style="margin-top:6px">Importar guias</h2>
+<p class="intro">Cada guia é conferida na hora em que entra, antes de ir pro convênio. As que já estavam no painel com o mesmo número são atualizadas, não duplicam.</p>
+
+{% if erro %}<div class="alerta erro">{{ erro }}</div>{% endif %}
+
+{% if lote %}
+<div class="veredito {{ 'nao' if lote.com_problema else 'sim' }}">
+  <h3>{{ lote.verificadas }} guias conferidas de {{ lote.arquivo }}</h3>
+  <div class="chips" style="margin-top:8px">
+    {% for st in ["bloqueada", "pendente", "corrigir", "atencao", "ok"] %}{% if lote.por_status.get(st) %}
+      <span class="tag {{ st }}">{{ lote.por_status[st] }} {{ st }}</span>{% endif %}{% endfor %}
+  </div>
+  {% if lote.com_problema %}<p style="margin:6px 0 0"><b>{{ lote.com_problema|length }}</b> não podem ir como estão · <b style="color:var(--bloq)">{{ lote.valor_em_risco|brl }}</b> em risco.</p>
+  {% else %}<p style="margin:6px 0 0">Nenhuma guia travada. Pode enviar.</p>{% endif %}
+  {% if lote.erros %}<p class="msg">{{ lote.erros|length }} linha(s) não deu pra ler: {% for e in lote.erros %}linha {{ e.linha }} ({{ e.erro }}){{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+</div>
+{% if lote.com_problema %}
+<div class="rolagem"><table>
+  <tr><th>Guia</th><th>Status</th><th>Unid.</th><th>Convênio</th><th class="num">Valor</th><th>O que fazer</th></tr>
+  {% for g in lote.com_problema %}
+  <tr><td><a class="id" href="/guias/{{ g.id_guia }}">{{ g.id_guia }}</a></td><td><span class="tag {{ g.status }}">{{ g.status }}</span></td>
+    <td>{{ g.unidade }}</td><td>{{ g.convenio }}</td><td class="num">{{ g.valor|brl }}</td>
+    <td>{% for a in g.achados if a.severidade != 'atencao' %}<div><b>{{ rotulo(a.codigo) }}</b> <span class="acao">→ {{ a.acao }}</span></div>{% endfor %}</td></tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+<p><a class="bruto" href="/">Ver o painel atualizado →</a></p>
+{% endif %}
+
+{% if guia %}
+<div class="veredito {{ 'nao' if guia.status in ['bloqueada', 'pendente', 'corrigir'] else 'sim' }}">
+  <h3>{% if guia.status in ['bloqueada', 'pendente', 'corrigir'] %}⛔ PENDENTE{% else %}✅ OK{% endif %} · {{ guia.id_guia }}
+    <span class="tag {{ guia.status }}">{{ nome_status.get(guia.status, guia.status) }}</span></h3>
+  <div class="msg">{{ guia.unidade or '?' }} · {{ guia.convenio or '?' }} · {{ guia.valor|brl }}{% if guia.valor_em_risco %} · <b style="color:var(--bloq)">vai glosar se enviar assim</b>{% endif %}</div>
+  {% if guia.achados %}
+  <ol>{% for a in guia.achados %}<li><b>{{ rotulo(a.codigo) }}</b>: {{ a.mensagem }}<br><span class="acao">→ {{ a.acao }}</span></li>{% endfor %}</ol>
+  {% else %}<p style="margin:8px 0 0">Nenhum problema. Pode enviar ao convênio.</p>{% endif %}
+  <p style="margin:10px 0 0"><a class="bruto" href="/guias/{{ guia.id_guia }}">Abrir a guia</a> · <a class="bruto" href="/">Ver no painel</a></p>
+</div>
+{% endif %}
+
+<details class="bloco" {{ 'open' if not guia and not guia_form }}>
+  <summary>Enviar planilha (CSV)</summary>
+  <form method="post" action="/importar/csv" enctype="multipart/form-data">
+    <label class="soltar" id="soltar">
+      <input type="file" name="arquivo" accept=".csv,text/csv" required id="arquivo">
+      <b id="nome-arquivo">Clique ou arraste o CSV aqui</b>
+      <span class="msg">O mesmo export do sistema: cabeçalho com id_guia, convenio, numero_autorizacao... Vírgula ou ponto e vírgula, UTF-8 ou Excel.</span>
+    </label>
+    <div class="acoes"><button class="primario">Importar e conferir</button>
+      <span class="msg">Uma linha com erro não impede as outras.</span></div>
+  </form>
+</details>
+
+<details class="bloco" {{ 'open' if guia or guia_form }}>
+  <summary>Lançar uma guia</summary>
+  <form method="post" action="/importar/guia" style="margin-top:12px">
+    <div class="campos">
+      <label>Número da guia *<input name="id_guia" value="{{ f.id_guia or '' }}" placeholder="G-2609-0001" required></label>
+      <label>Unidade<select name="unidade">{% for u in ["Centro", "Norte", "Sul"] %}<option {{ 'selected' if f.unidade == u }}>{{ u }}</option>{% endfor %}</select></label>
+      <label>Data do atendimento<input type="date" name="data_atendimento" value="{{ f.data_atendimento or '' }}"></label>
+      <label>Data do lançamento<input type="date" name="data_lancamento" value="{{ f.data_lancamento or hoje }}"></label>
+      <label>Paciente (código)<input name="paciente" value="{{ f.paciente or '' }}" placeholder="P-2001"></label>
+      <label>Convênio<select name="convenio">{% for c in convenios %}<option {{ 'selected' if f.convenio == c }}>{{ c }}</option>{% endfor %}</select></label>
+      <label>Carteirinha<input name="carteirinha" value="{{ f.carteirinha or '' }}"></label>
+      <label>CID<input name="cid" value="{{ f.cid or '' }}" placeholder="M54.5"></label>
+      <label class="largo">Procedimento<select name="procedimento_codigo">{% for cod, p in procedimentos.items() %}<option value="{{ cod }}" {{ 'selected' if f.procedimento_codigo == cod }}>{{ cod }} · {{ p.descricao }}</option>{% endfor %}</select></label>
+      <label>Nº da autorização<input name="numero_autorizacao" value="{{ f.numero_autorizacao or '' }}"></label>
+      <label>Validade da autorização<input type="date" name="autorizacao_validade" value="{{ f.autorizacao_validade or '' }}"></label>
+      <label>Sessões na autorização<input type="number" min="0" name="autorizacao_sessoes_limite" value="{{ f.autorizacao_sessoes_limite or '' }}"></label>
+      <label>Nº desta sessão<input type="number" min="0" name="sessao_numero_na_autorizacao" value="{{ f.sessao_numero_na_autorizacao or '' }}"></label>
+      <label>Profissional<input name="profissional" value="{{ f.profissional or '' }}"></label>
+      <label>Registro do profissional<input name="profissional_registro" value="{{ f.profissional_registro or '' }}" placeholder="CREFITO-3 000000-F ou CRM-SP 000000"></label>
+      <label>Valor (R$)<input name="valor" value="{{ f.valor or '' }}" placeholder="62.00"></label>
+      <label class="largo">Observação da recepção<textarea name="observacao_recepcao" placeholder="Ex.: autorizado por telefone, protocolo 771203, aguardando número">{{ f.observacao_recepcao or '' }}</textarea></label>
+    </div>
+    <div class="acoes"><button class="primario">Conferir guia</button>
+      <span class="msg">Campo que ficou em branco na guia deixe em branco: é isso que a conferência precisa ver.</span></div>
+  </form>
+</details>
+
+<script>
+  const zona = document.getElementById('soltar'), campo = document.getElementById('arquivo'), nome = document.getElementById('nome-arquivo');
+  const mostrar = () => { if (campo.files.length) nome.textContent = campo.files[0].name; };
+  campo.addEventListener('change', mostrar);
+  ['dragenter', 'dragover'].forEach(e => zona.addEventListener(e, ev => { ev.preventDefault(); zona.classList.add('sobre'); }));
+  ['dragleave', 'drop'].forEach(e => zona.addEventListener(e, ev => { ev.preventDefault(); zona.classList.remove('sobre'); }));
+  zona.addEventListener('drop', ev => { if (ev.dataTransfer.files.length) { campo.files = ev.dataTransfer.files; mostrar(); } });
+</script>
+{% endblock %}
