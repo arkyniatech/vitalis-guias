@@ -4,9 +4,11 @@ Conferência automática das guias de convênio da Clínica Vitalis, feita **no 
 
 Construído pra etapa técnica do processo seletivo da Expert Integrado. Nasceu pra esta prova.
 
+**No ar:** https://clinica-vitalis.arkynia.com.br (usuário e senha no formulário da prova). Menu: Painel, Importar guias, Assistente, Regras dos convênios e Integração.
+
 ## Em uma frase
 
-A guia entra (API, CSV ou n8n) → formato normalizado → observação da recepção lida (IA, com fallback) → uma regra de cada vez → grava status, achados, ação e R$ em risco → dashboard, relatório de terça e alerta pra recepção.
+A guia entra (n8n, API, CSV ou pela tela) → formato normalizado → observação da recepção lida (IA, com fallback) → uma regra de cada vez → grava status, achados, ação e R$ em risco → dashboard, relatório de terça e alerta pra recepção.
 
 ![Dashboard com as 80 guias de agosto](docs/painel.png)
 
@@ -48,9 +50,10 @@ Extrapolando pras 900 guias/mês, seriam uns R$ 30 mil/mês em risco, o dobro da
 ## Como funciona
 
 ```
-                 ┌─ POST /guias          JSON, uma guia ou várias (é o que o n8n / sistema chama)
+                 ┌─ n8n: webhook "guia lançada" → POST /guias → alerta WhatsApp da unidade
+                 ├─ POST /guias          JSON, uma guia ou várias (é o que o n8n / sistema chama)
   guia entra ──┼─ POST /guias/lote     CSV exportado do sistema (o que a Carla tem hoje)
-                 └─ n8n: webhook "guia lançada" → POST /guias → alerta WhatsApp da unidade
+                 └─ tela /importar       botão "Importar guias": CSV arrastado ou formulário de uma guia
                        │
                        ▼
              validador/normalizador.py   03/08/2026 → 2026-08-03, "62,00" → 62.0, anota o que converteu
@@ -68,6 +71,8 @@ Extrapolando pras 900 guias/mês, seriam uns R$ 30 mil/mês em risco, o dobro da
              Postgres (Supabase) ──► GET /  dashboard  ·  GET /relatorio  JSON + mensagens prontas
                                      GET /guias/{id}  como a regra leu cada campo
                                      GET /convenios  regras em tela  ·  GET /integracao  endpoints e mensagens
+
+  consulta por IA ──► aba Assistente (ou Claude Desktop / Code) → Skill conferir-guia → MCP vitalis-guias → mesmo motor
 ```
 
 ### As regras
@@ -219,7 +224,7 @@ Quem avalia consegue ver a Skill e o MCP funcionando só abrindo o painel. Preci
 
 ## Os números da terça
 
-`GET /` mostra: verificadas, com problema, dinheiro em risco (travado nas bloqueadas x recuperável em corrigir e pendente), por tipo, por unidade, por convênio, e a lista do que fazer na ordem (bloqueadas primeiro, maior valor primeiro), com a ação de cada uma e até quando enviar. Filtro por data de lançamento.
+`GET /` mostra: verificadas, com problema, dinheiro em risco (travado nas bloqueadas x recuperável em corrigir e pendente), por tipo, por unidade, por convênio, e a lista do que fazer na ordem (bloqueadas primeiro, maior valor primeiro), com a ação de cada uma e até quando enviar. Filtro por data de lançamento, com atalhos "Tudo", "Últimos 7 dias" (o que o Dr. Renato abre na terça) e "Este mês". O mesmo resumo chega no WhatsApp dele toda terça às 7h, pelo n8n.
 
 `GET /relatorio?desde=AAAA-MM-DD` devolve o mesmo em JSON, mais `mensagem_whatsapp` (resumo de terça) e `mensagem_pendencias` (lista de trabalho).
 
@@ -235,13 +240,14 @@ python scripts/carregar_lote.py dados/guias_agosto.csv http://localhost:8000 SUA
 
 Ou `docker compose up --build`.
 
-Testes: `python -m pytest`. São 49, entre eles:
+Testes: `python -m pytest`. São 50, entre eles:
 
 - o gabarito das 80 guias (`tests/gabarito_agosto.json`): se alguém mexer numa regra e uma guia mudar de lugar, o teste diz qual;
 - as 80 guias entrando uma por uma pelo `POST /guias`, sem parâmetro nenhum, batendo com o lote;
 - lote reenviado, invertido e embaralhado dando o mesmo resultado;
 - um teste pra cada esclarecimento da Expert;
-- o MCP devolvendo a mesma decisão e os mesmos números do app.
+- o MCP devolvendo a mesma decisão e os mesmos números do app;
+- a importação pela tela e o assistente chamando o MCP de verdade (com um Claude falso, sem gastar API).
 
 `python scripts/explicar_agosto.py` regenera o `docs/agosto_guia_a_guia.md`.
 
@@ -249,21 +255,21 @@ Testes: `python -m pytest`. São 49, entre eles:
 
 1. **Supabase**: crie um projeto, copie a connection string (Settings → Database → URI, pooler em modo Session) e troque o prefixo pra `postgresql+psycopg://`. As tabelas são criadas na primeira subida.
 2. **EasyPanel**: App → Source: GitHub (este repositório) → Build: Dockerfile → porta 8000 → domínio.
-3. **Environment**: `DATABASE_URL`, `API_KEY`, `DASH_USER`, `DASH_PASS`, `OPENAI_API_KEY` (opcional), `DASH_NOME` e `DASH_PAPEL` (como o operador aparece no painel, opcionais). Nunca no repositório. Se o banco for dividido com outros sistemas, `DB_SCHEMA=vitalis` põe as tabelas num schema só delas.
-4. Deploy. `GET /saude` responde `{"app":"ok","banco":"ok","ia":"openai"}`.
+3. **Environment**: `DATABASE_URL`, `API_KEY`, `DASH_USER`, `DASH_PASS`, `OPENAI_API_KEY` (opcional), `DASH_NOME` e `DASH_PAPEL` (como o operador aparece no painel, opcionais), `ANTHROPIC_API_KEY` e `ASSISTENTE_MODELO` (aba Assistente, opcionais). Nunca no repositório. Se o banco for dividido com outros sistemas, `DB_SCHEMA=vitalis` põe as tabelas num schema só delas.
+4. Deploy. `GET /saude` responde `{"app":"ok","banco":"ok","ia":"palavra_chave"}` (ou `"openai"` com a chave da OpenAI).
 5. Carregue agosto: `python scripts/carregar_lote.py dados/guias_agosto.csv https://SEU-DOMINIO SUA_API_KEY`.
-6. **n8n**: na pasta "Clínica Vitalis", preencha o nó Config de cada workflow e ligue as duas credenciais.
+6. **n8n**: na pasta "Clínica Vitalis", preencha o nó Config de cada workflow, ligue as duas credenciais (Vitalis API e WhatsApp uazapi) e publique.
 
 ## Segurança e cuidado básico
 
 - Segredos só em variável de ambiente. `.env` está no `.gitignore`; `.env.example` tem só placeholders.
-- `POST /guias`, `/guias/lote` e `DELETE /guias/{id}` exigem `X-API-Key`. Dashboard e `/relatorio` exigem login (HTTP Basic) ou a mesma chave (pro n8n). Sem essas variáveis o app avisa no log que está aberto.
+- `POST /guias`, `/guias/lote` e `DELETE /guias/{id}` exigem `X-API-Key`. Dashboard, `/relatorio`, Importar guias e Assistente exigem login (HTTP Basic); `/relatorio` aceita também a chave (pro n8n). Os envios pela tela (importar e assistente) só são aceitos vindos do próprio painel. O assistente só consulta: não grava nada. Sem essas variáveis o app avisa no log que está aberto.
 - Erro tratado em cada camada: JSON inválido → 422; guia sem id → 422; convênio desconhecido → achado, não exceção; uma regra que quebrar vira achado `ERRO_INTERNO_REGRA` e as outras seguem; linha ruim no lote não derruba o lote; IA fora do ar cai no fallback; app fora do ar → n8n devolve 502 e avisa a Carla.
 - Sem dado clínico além do CID, que o convênio exige. Paciente é código anônimo.
 
 ## Decisões que eu defenderia na entrevista
 
-- **Python + FastAPI pra regra, n8n pra orquestrar.** Regra em Code node de n8n é difícil de testar e de explicar. Aqui cada regra é uma função com nome e 49 testes rodam em 5 segundos. O n8n fica onde ele é bom: receber a guia, agendar e entregar a mensagem.
+- **Python + FastAPI pra regra, n8n pra orquestrar.** Regra em Code node de n8n é difícil de testar e de explicar. Aqui cada regra é uma função com nome e 50 testes rodam em 6 segundos. O n8n fica onde ele é bom: receber a guia, agendar e entregar a mensagem.
 - **Regras no JSON, não no código.** `regras_convenio.json` é o que a Carla mandou. Mudou o limite do Plano Bem, troca o arquivo. O que é regra da clínica e não do convênio (CREFITO pra fisio, CRM pra médico) está num dicionário só, com comentário dizendo isso.
 - **IA num lugar só, com fallback.** Ver acima.
 - **Conferência no lançamento, sempre.** A mesma guia dá o mesmo resultado entrando por lote, CSV ou API. É o que o esclarecimento 2 pede e o que faz sentido na operação: a guia é conferida quando nasce.
@@ -279,7 +285,7 @@ Testes: `python -m pytest`. São 49, entre eles:
 
 | Ferramenta | Pra quê | Por que essa |
 |---|---|---|
-| **Python + FastAPI** | Regras, API e painel | Regra de negócio precisa de teste. Cada regra é uma função com nome, e os 47 testes rodam em 3 segundos. Num Code node do n8n isso não dá pra testar nem explicar linha a linha. |
+| **Python + FastAPI** | Regras, API e painel | Regra de negócio precisa de teste. Cada regra é uma função com nome, e os 50 testes rodam em 6 segundos. Num Code node do n8n isso não dá pra testar nem explicar linha a linha. |
 | **Postgres (Supabase)** | Guias, achados e cache da leitura das observações | Postgres gerenciado, sem servidor pra cuidar. Localmente e nos testes, o mesmo código roda em SQLite. |
 | **EasyPanel + Docker** | App no ar com HTTPS | `git push` e Implantar. O `Dockerfile` é o mesmo que roda local. |
 | **n8n** | Receber a guia, agendar e entregar as mensagens | É onde ele é bom: webhook, cron e envio sem código. A regra fica fora dele. |
@@ -315,7 +321,7 @@ A IA escreveu a maior parte do código. Eu descrevi o problema, revisei cada ent
 
 ### Como testei
 
-- **49 testes automáticos** (`python -m pytest`), entre eles:
+- **50 testes automáticos** (`python -m pytest`), entre eles:
   - o **gabarito das 80 guias de agosto**: se uma regra mudar e uma guia trocar de status, o teste diz qual;
   - as 80 guias entrando uma por uma pela API, batendo com o lote;
   - lote reenviado, invertido e embaralhado dando o mesmo resultado;
@@ -323,12 +329,13 @@ A IA escreveu a maior parte do código. Eu descrevi o problema, revisei cada ent
   - IA respondendo certo, respondendo lixo e fora do ar;
   - o MCP devolvendo a mesma decisão e os mesmos números do app;
   - importação pela tela, incluindo a recusa de envio vindo de fora do painel;
-  - o assistente subindo o MCP de verdade e chamando `verificar_guia` (com um Claude falso, pra não gastar API).
-- **Em produção:** `/saude`, painel e API recusando acesso sem credencial, carga das 80 guias batendo com o gabarito (80 · 39 · R$ 2.642,00) e guia de teste criada e apagada.
-- **Planilha de setembro** ([`dados/guias_setembro_teste.csv`](dados/guias_setembro_teste.csv)): 35 guias de 21 a 24/09 com um caso de cada problema, pra testar o relatório de terça e as pendências do dia com dados recentes.
+  - o assistente subindo o MCP de verdade e chamando `verificar_guia` (com um Claude falso, pra não gastar API);
+  - erro da API do Claude virando mensagem amigável no chat, não erro 500.
+- **Em produção:** `/saude`, painel e API recusando acesso sem credencial, carga das 80 guias batendo com o gabarito (80 · 39 · R$ 2.642,00), guia de teste criada e apagada, e o assistente respondendo no ar.
+- **Planilha de setembro** ([`dados/guias_setembro_teste.csv`](dados/guias_setembro_teste.csv)): 35 guias de 21 a 24/09 com um caso de cada problema, pra testar o relatório de terça e as pendências do dia com dados recentes. Importada pelo botão, usada nos testes do n8n e apagada depois, pra o painel voltar às 80 guias de agosto.
 - **MCP** testado por um cliente MCP de verdade (stdio), inclusive com uma guia escrita do jeito que a recepção escreve.
 - **Assistente** testado com a API do Claude de verdade: guia bagunçada com autorização por telefone voltando PENDENTE, com os 4 motivos e o prazo de 28/09/2026, e pergunta de cobertura do Plano Bem.
-- **n8n:** o relatório de terça executado manualmente contra o app no ar, com a chave da API. O envio pelo WhatsApp é testado com os três workflows publicados.
+- **n8n:** os três workflows executados contra o app no ar, com as mensagens chegando no WhatsApp (relatório de terça, pendências do dia e "NÃO ENVIAR" da guia nova). Depois de publicados, o webhook público testado com `dados/exemplo_guia_nova.json`, devolvendo `bloqueada` na hora.
 - **Visual** conferido no navegador, em desktop e em celular (375px).
 
 ### Quanto tempo levou
@@ -353,9 +360,11 @@ app/
   templates/              dashboard, guia, regras, integracao, importar, assistente
 mcp_vitalis/server.py     MCP: consultar_regra, verificar_guia, buscar_guia, listar_convenios, relatorio_da_semana
 skills/conferir-guia/     Skill pra recepção e faturamento (usa o MCP)
-dados/                    regras_convenio.json, guias_agosto.csv
-docs/                     agosto_guia_a_guia.md
-tests/                    gabarito das 80 guias, regras, esclarecimentos, observação, API
+dados/                    regras_convenio.json, guias_agosto.csv, exemplo_guia_nova.json, guias_setembro_teste.csv
+docs/                     agosto_guia_a_guia.md, painel.png
+tests/                    gabarito das 80 guias, regras, esclarecimentos, observação, API, MCP, assistente
+.mcp.json                 registra o MCP no Claude Code
+.claude/skills/           a Skill pronta pro Claude Code (link pra skills/)
 integracao/n8n/           os 3 workflows da pasta "Clínica Vitalis"
 scripts/                  carregar_lote.py, explicar_agosto.py
 ```
