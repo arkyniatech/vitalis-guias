@@ -8,7 +8,7 @@ Construído pra etapa técnica do processo seletivo da Expert Integrado. Nasceu 
 
 A guia entra (API, CSV ou n8n) → formato normalizado → observação da recepção lida (IA, com fallback) → uma regra de cada vez → grava status, achados, ação e R$ em risco → dashboard, relatório de terça e alerta pra recepção.
 
-![Dashboard com as 80 guias de agosto](docs/dashboard.png)
+![Dashboard com as 80 guias de agosto](docs/painel.png)
 
 ## O que achei nas 80 guias de agosto
 
